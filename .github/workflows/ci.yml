@@ -43,3 +43,44 @@ jobs:
 
       - name: Test
         run: npm test
+
+  integration:
+    name: Integration (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: guanemx
+          POSTGRES_PASSWORD: guanemx-test-password
+          POSTGRES_DB: guanemx_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U guanemx -d guanemx_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://guanemx:guanemx-test-password@localhost:5432/guanemx_test?schema=public
+      TEST_DB_SKIP_RESET: "1"
+      AUTH_SECRET: ci-only-secret-at-least-32-characters-long
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply migrations to test database
+        run: npx prisma migrate deploy
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run integration tests
+        run: npm run test:integration

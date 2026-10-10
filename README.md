@@ -18,11 +18,24 @@ No payment provider is selected. Funds must not be accepted until a provider is 
 ```bash
 npm run typecheck   # tsc --noEmit
 npm run lint        # eslint .
-npm test            # vitest run
+npm test            # vitest run (unit tests, no database)
+npm run test:integration  # vitest run against a real Postgres test database
 npx prisma validate # schema validation (needs DATABASE_URL in env)
 ```
 
-CI (`.github/workflows/ci.yml`) runs generate, validate, typecheck, lint and tests on Node 20, 22 and 24.
+`npm test` runs the unit suites in `src/lib/*.test.ts` (no database needed).
+
+`npm run test:integration` runs the DB-backed suites in `test/integration/` against a dedicated
+PostgreSQL database named `guanemx_test`. It derives the test URL from `DATABASE_URL` in `.env`,
+refuses to run against any database that is not `guanemx_test` (override with `TEST_DATABASE_URL`),
+resets that database with `prisma migrate reset --force --skip-seed`, and writes the resolved URL to
+`test/.env.test` (gitignored) for the test workers. The suites exercise the recharge, withdrawal, and
+payout-destination routes end to end: 31 tests covering requests, idempotency, agent reviews,
+referral bonuses, daily limits, refunds, and account-number encryption.
+
+CI (`.github/workflows/ci.yml`) runs generate, validate, typecheck, lint and unit tests on Node 20, 22
+and 24, plus an integration job (Node 22) that applies migrations to a Postgres service container and
+runs `npm run test:integration`.
 
 > Windows note: if PowerShell blocks the `npm.ps1` shim (execution policy), run commands through `cmd /c "npm run …"` or use the `npm.cmd` shim.
 
@@ -67,7 +80,7 @@ Authorization and business rules belong in server-side services, never in client
 - Payment provider and market-data provider integrations/webhooks; the market page only reports configuration state.
 - Scheduled jobs: no `/api/cron/*` routes for subscription expiry or stuck-session/withdrawal cleanup.
 - Community moderation (reporting, soft-delete admin actions) beyond the schema fields.
-- Full audit instrumentation coverage, structured observability, and dedicated integration tests against a live database.
+- Full audit instrumentation coverage and structured observability beyond the current money flows (integration tests now cover recharge, withdrawal, and payout-destination flows — see "Health gates").
 
 ## Local bootstrap notes
 
