@@ -18,7 +18,7 @@ export default async function LoginPage({ searchParams }: Props) {
   return <main className="auth-page auth-portal">
     <header className="auth-top"><BrandLogo /><Link href="/">Back to GuanemX</Link></header>
     <div className="auth-layout">
-      <section className="auth-card auth-panel"><span className="auth-step">ACCOUNT ACCESS</span><span className="label">WELCOME BACK</span><h1>Welcome back</h1><p>Sign in to continue to your GuanemX account and services.</p><AuthForm mode="login" nextPath={safeNextPath(next)} /><div className="auth-switch">Don’t have an account? <Link href="/register">Register</Link></div></section>
+      <section className="auth-card auth-panel"><span className="auth-step">ACCOUNT ACCESS</span><span className="label">WELCOME BACK</span><h1>Welcome back</h1><p>Sign in to continue to your GuanemX account and services.</p><AuthForm mode="login" nextPath={safeNextPath(next)} /><div className="auth-switch"><Link href="/forgot-password">Forgot password?</Link></div><div className="auth-switch">Don’t have an account? <Link href="/register">Register</Link></div></section>
       <AuthTradingArt />
     </div>
     <AuthTrustBar />

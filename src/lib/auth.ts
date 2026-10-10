@@ -54,7 +54,7 @@ export async function getCurrentUser() {
     where: { tokenHash: hashSessionToken(token) },
     include: { user: { select: { id: true, name: true, email: true, role: true, status: true } } },
   });
-  if (!session || session.revokedAt || session.expiresAt <= new Date() || session.user.status === UserStatus.SUSPENDED) return null;
+  if (!session || session.revokedAt || session.expiresAt <= new Date() || session.user.status !== UserStatus.ACTIVE) return null;
   return { id: session.user.id, name: session.user.name, email: session.user.email, role: session.user.role, status: session.user.status };
 }
 

@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
     if (!user || !passwordValid || user.status === UserStatus.SUSPENDED) {
       return NextResponse.json({ error: "Email or password is incorrect." }, { status: 401 });
     }
+    if (user.status !== UserStatus.ACTIVE || !user.emailVerifiedAt) {
+      return NextResponse.json({ error: "Verify your email before signing in. Check your inbox for the verification link." }, { status: 403 });
+    }
 
     const session = await prisma.$transaction((tx) => createSession(tx, user.id, request), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     await setSessionCookie(session.token);

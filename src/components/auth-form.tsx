@@ -30,7 +30,7 @@ export default function AuthForm({ mode, nextPath }: Props) {
         setError(result.error ?? "Unable to continue. Please try again.");
         return;
       }
-      router.replace(nextPath === "/account" && result.next?.startsWith("/") ? result.next : nextPath);
+      router.replace(mode === "register" ? "/verify-email?sent=1" : nextPath === "/account" && result.next?.startsWith("/") ? result.next : nextPath);
       router.refresh();
     } catch {
       setError("Unable to reach GuanemX. Check your connection and try again.");

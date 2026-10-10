@@ -51,6 +51,7 @@ Prisma models cover users and database-backed sessions, login rate-limit buckets
 - Account services: wallet and ledger, manual recharge requests, withdrawal requests, payout destination setup (AES-256-GCM encrypted account numbers), transactions, profile, password change, and a General community room.
 - Manual recharge: a request assigns an active agent; an agent confirmation credits the Main Balance and writes the deposit transaction and ledger entry atomically. Optional configurable referral bonus on confirmed recharges.
 - Manual withdrawals: gross amount reserved at request time, 10% fee, one per Kigali calendar day; an agent can approve (records net payout + fee for manual payment) or reject (returns the gross amount).
+- Email verification and password reset: single-use, hashed verification tokens; `/api/auth/verify-email`, `/api/auth/forgot-password` (no account enumeration), and `/api/auth/reset-password` (revokes all sessions). Registration issues a verify-email token. Mail delivery is pluggable (`MAIL_DRIVER=log` for development; `smtp` fails loudly until configured).
 - Agent operations: review queues for assigned recharge and withdrawal requests; every decision is audited.
 - Administration: platform overview with audit trail, robot catalog management (create/update/status/plans), and agent access management.
 
@@ -75,7 +76,7 @@ Authorization and business rules belong in server-side services, never in client
 
 ## Not implemented yet (known gaps)
 
-- Email verification and password reset delivery (the `VerificationToken` model exists but no flow uses it; registration leaves accounts `PENDING_VERIFICATION`).
+- Email verification and password-reset **UI pages** (`/verify-email`, `/reset-password`) — the API contract, tokens, and `MAIL_DRIVER=log` delivery exist, but no mail provider (SMTP) is integrated yet and account access is not blocked on verification, so existing accounts stay usable.
 - Subscription checkout: `Subscription` and `Payment` models exist but nothing creates them; the robot page's Subscribe action is disabled.
 - Payment provider and market-data provider integrations/webhooks; the market page only reports configuration state.
 - Scheduled jobs: no `/api/cron/*` routes for subscription expiry or stuck-session/withdrawal cleanup.

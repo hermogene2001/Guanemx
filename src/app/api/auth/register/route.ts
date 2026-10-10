@@ -3,8 +3,10 @@ import { randomBytes } from "node:crypto";
 import { Prisma, UserStatus } from "@prisma/client";
 import { hash } from "bcryptjs";
 import { z } from "zod";
-import { authConfigurationReady, consumeRateLimit, createSession, sameOriginRequest, setSessionCookie } from "@/lib/auth";
+import { authConfigurationReady, consumeRateLimit, sameOriginRequest } from "@/lib/auth";
+import { sendMail, verificationLink } from "@/lib/mailer";
 import { prisma } from "@/lib/prisma";
+import { createVerificationToken, VERIFY_EMAIL_TTL_MS } from "@/lib/verification-tokens";
 
 const registrationSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (!ipAllowed || !emailAllowed) return NextResponse.json({ error: "Too many account creation attempts. Try again later." }, { status: 429 });
 
     const passwordHash = await hash(parsed.data.password, 12);
-    const token = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const inviter = invitationCode ? await tx.user.findUnique({ where: { referralCode: invitationCode }, select: { id: true } }) : null;
       if (invitationCode && !inviter) throw new Error("INVALID_INVITATION_CODE");
       const user = await tx.user.create({ data: {
@@ -39,11 +41,15 @@ export async function POST(request: NextRequest) {
         referralCode: randomBytes(6).toString("hex").toUpperCase(), invitedById: inviter?.id,
       } });
       await tx.wallet.create({ data: { userId: user.id, currency: "RWF" } });
-      const session = await createSession(tx, user.id, request);
-      return session.token;
+      const verificationToken = await createVerificationToken(tx, user.id, "verify-email", VERIFY_EMAIL_TTL_MS);
+      return verificationToken;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    await setSessionCookie(token);
-    return NextResponse.json({ user: { name, email }, next: "/account" }, { status: 201 });
+    await sendMail({
+      to: email,
+      subject: "Verify your GuanemX email",
+      text: `Welcome to GuanemX! Verify your email to activate your account:\n\n${verificationLink("verify-email", result)}\n\nThis link is valid for 24 hours.`,
+    });
+    return NextResponse.json({ user: { name, email }, next: "/verify-email?sent=1" }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_INVITATION_CODE") return NextResponse.json({ error: "That invitation code is not valid." }, { status: 400 });
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
