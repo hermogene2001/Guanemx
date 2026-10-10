@@ -13,8 +13,8 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in to view the community." }, { status: 401 });
   const room = await generalRoom();
-  const messages = await prisma.communityMessage.findMany({ where: { roomId: room.id, deletedAt: null }, orderBy: { createdAt: "desc" }, take: 100, include: { author: { select: { name: true, role: true } } } });
-  return NextResponse.json({ room: { id: room.id, name: room.name }, messages: messages.reverse().map((item) => ({ id: item.id, body: item.body, createdAt: item.createdAt.toISOString(), author: item.author })) });
+  const messages = await prisma.communityMessage.findMany({ where: { roomId: room.id, deletedAt: null }, orderBy: { createdAt: "desc" }, take: 100, include: { author: { select: { id: true, name: true, role: true } } } });
+  return NextResponse.json({ room: { id: room.id, name: room.name }, messages: messages.reverse().map((item) => ({ id: item.id, body: item.body, createdAt: item.createdAt.toISOString(), author: item.author, reported: Boolean(item.reportedAt) })) });
 }
 
 export async function POST(request: NextRequest) {

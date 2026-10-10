@@ -1,6 +1,6 @@
 # GuanemX V1
 
-This workspace includes a standalone `GuanemX V1 prototype.html`, which serves as a visual and product reference. It contains simulated client-side behavior and is not production infrastructure. The application in `src/` is the Next.js, TypeScript, PostgreSQL and Prisma implementation for V1. It does not yet implement production authentication email delivery, payments, market data, or wallet-payout operations. The landing chart is explicitly an illustrative preview and is not live market data.
+This workspace includes a standalone `GuanemX V1 prototype.html`, which serves as a visual and product reference. It contains simulated client-side behavior and is not production infrastructure. The application in `src/` is the Next.js, TypeScript, PostgreSQL and Prisma implementation for V1. The landing chart is illustrative, not live market data. Recharge and payout transfers remain manual, and no live market feed is connected.
 
 ## Local setup
 
@@ -11,7 +11,7 @@ This workspace includes a standalone `GuanemX V1 prototype.html`, which serves a
 5. (Optional) Run `npm run db:seed`. The seed is idempotent and never fabricates robots, plans, balances, or performance data: it ensures the General community room exists and optionally promotes a registered account to `ADMIN` when `SEED_ADMIN_EMAIL` is set.
 6. Run `npm run dev`.
 
-No payment provider is selected. Funds must not be accepted until a provider is selected and the payment/webhook flow is implemented and reviewed for the deployment jurisdictions. Withdrawal approvals record accounting only; actual payouts are performed manually outside GuanemX.
+No payment provider is selected. Recharge confirmation and withdrawal accounting are agent-operated; no provider currently receives or sends funds. Withdrawal approvals record accounting only; actual payouts are performed manually outside GuanemX. Email uses `MAIL_DRIVER=log` locally; production must configure `MAIL_DRIVER=resend`, `RESEND_API_KEY`, and `MAIL_FROM`.
 
 ## Health gates
 
@@ -29,9 +29,11 @@ npx prisma validate # schema validation (needs DATABASE_URL in env)
 PostgreSQL database named `guanemx_test`. It derives the test URL from `DATABASE_URL` in `.env`,
 refuses to run against any database that is not `guanemx_test` (override with `TEST_DATABASE_URL`),
 resets that database with `prisma migrate reset --force --skip-seed`, and writes the resolved URL to
-`test/.env.test` (gitignored) for the test workers. The suites exercise the recharge, withdrawal, and
-payout-destination routes end to end: 31 tests covering requests, idempotency, agent reviews,
-referral bonuses, daily limits, refunds, and account-number encryption.
+`test/.env.test` (gitignored) for the test workers. The 48 integration tests exercise the recharge,
+withdrawal, payout-destination, subscription-checkout, and auth-verification flows end to end:
+requests, idempotency/replay, agent reviews, referral bonuses, daily limits, refunds, account-number
+encryption, wallet-funded checkout with ledger entries, subscription expiry/pruning, single-use
+verification tokens, and password reset with session revocation.
 
 CI (`.github/workflows/ci.yml`) runs generate, validate, typecheck, lint and unit tests on Node 20, 22
 and 24, plus an integration job (Node 22) that applies migrations to a Postgres service container and
@@ -47,13 +49,14 @@ Prisma models cover users and database-backed sessions, login rate-limit buckets
 
 - Public landing page with the prototype's navy, slate, and gold visual language (dark/light/system themes).
 - Sign-up/sign-in with database sessions, origin checks, secure HTTP-only session cookies, and database-backed rate limits.
-- Robot marketplace and detail pages (tier filters, search, plan selection) — subscription checkout is intentionally disabled.
+- Robot marketplace and detail pages (tier filters, search, plan selection) with wallet-funded subscription checkout, immutable ledger entries, and idempotent requests.
 - Account services: wallet and ledger, manual recharge requests, withdrawal requests, payout destination setup (AES-256-GCM encrypted account numbers), transactions, profile, password change, and a General community room.
 - Manual recharge: a request assigns an active agent; an agent confirmation credits the Main Balance and writes the deposit transaction and ledger entry atomically. Optional configurable referral bonus on confirmed recharges.
 - Manual withdrawals: gross amount reserved at request time, 10% fee, one per Kigali calendar day; an agent can approve (records net payout + fee for manual payment) or reject (returns the gross amount).
-- Email verification and password reset: single-use, hashed verification tokens; `/api/auth/verify-email`, `/api/auth/forgot-password` (no account enumeration), and `/api/auth/reset-password` (revokes all sessions). Registration issues a verify-email token. Mail delivery is pluggable (`MAIL_DRIVER=log` for development; `smtp` fails loudly until configured).
+- Email verification and password reset: single-use, hashed tokens; verification and reset pages; reset revokes all sessions; login requires an active account. Delivery supports development-only `MAIL_DRIVER=log` and the Resend API via `MAIL_DRIVER=resend`.
+- Subscription lifecycle: subscriptions start immediately after successful checkout and expire after their selected plan duration. `/api/cron/subscriptions` expires due subscriptions and removes expired sessions/tokens.
 - Agent operations: review queues for assigned recharge and withdrawal requests; every decision is audited.
-- Administration: platform overview with audit trail, robot catalog management (create/update/status/plans), and agent access management.
+- Administration: platform overview, recent audit activity, robot catalog management, agent access management, report/soft-delete/restore tools for community messages, and a 200-event audit page.
 
 ## Intended server route boundaries
 
@@ -74,14 +77,14 @@ Prisma models cover users and database-backed sessions, login rate-limit buckets
 
 Authorization and business rules belong in server-side services, never in client visibility alone. Future money-moving services must use database transactions, decimal arithmetic, and idempotency keys. Provider credentials and production secrets belong in deployment secret storage, never in source control.
 
-## Not implemented yet (known gaps)
+## Remaining production work
 
-- Email verification and password-reset **UI pages** (`/verify-email`, `/reset-password`) — the API contract, tokens, and `MAIL_DRIVER=log` delivery exist, but no mail provider (SMTP) is integrated yet and account access is not blocked on verification, so existing accounts stay usable.
-- Subscription checkout: `Subscription` and `Payment` models exist but nothing creates them; the robot page's Subscribe action is disabled.
-- Payment provider and market-data provider integrations/webhooks; the market page only reports configuration state.
-- Scheduled jobs: no `/api/cron/*` routes for subscription expiry or stuck-session/withdrawal cleanup.
-- Community moderation (reporting, soft-delete admin actions) beyond the schema fields.
-- Full audit instrumentation coverage and structured observability beyond the current money flows (integration tests now cover recharge, withdrawal, and payout-destination flows — see "Health gates").
+- Configure a verified Resend sender and secrets for production email. Local `log` mode prints links to the server terminal and does not deliver mail.
+- Select and integrate a payment provider, then implement/review payment webhooks before automating recharge or payout. Current agent workflows are intentionally manual.
+- Select an authorized market-data provider and add its API integration; the application currently shows no live prices.
+- Configure an external scheduler to call `POST /api/cron/subscriptions` with `Authorization: Bearer $CRON_SECRET` at least daily. The endpoint does not install its own scheduler.
+- The current robot subscription sells access for a fixed duration; it does not calculate or promise returns. Investment products, daily-profit credits, and compound/Growth Balance maturity require explicit product rules and are not part of this robot subscription lifecycle.
+- Add production deployment monitoring, database backup/restore procedures, and broader end-to-end review. Keep production credentials in the hosting provider's secret store.
 
 ## Local bootstrap notes
 

@@ -72,6 +72,7 @@ export default function RobotProductView({ robot }: { robot: RobotProduct }) {
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
   const [checkoutNotice, setCheckoutNotice] = useState("");
+  const [checkoutKey, setCheckoutKey] = useState("");
   const selectedPlan = robot.plans.find((plan) => plan.id === planId) ?? robot.plans[0];
   const tier = robot.tier ?? "BEGINNER";
 
@@ -80,11 +81,13 @@ export default function RobotProductView({ robot }: { robot: RobotProduct }) {
     setCheckoutBusy(true);
     setCheckoutError("");
     setCheckoutNotice("");
+    const idempotencyKey = checkoutKey || crypto.randomUUID();
+    setCheckoutKey(idempotencyKey);
     try {
       const response = await fetch("/api/subscriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId: selectedPlan.id, idempotencyKey: crypto.randomUUID() }),
+        body: JSON.stringify({ planId: selectedPlan.id, idempotencyKey }),
       });
       const result = await response.json() as { error?: string; subscription?: { expiresAt?: string | null } };
       if (!response.ok) {
@@ -95,6 +98,7 @@ export default function RobotProductView({ robot }: { robot: RobotProduct }) {
         setCheckoutError(result.error ?? "Subscription checkout could not be completed.");
         return;
       }
+      setCheckoutKey("");
       setCheckoutNotice(`Subscription active${result.subscription?.expiresAt ? ` until ${new Date(result.subscription.expiresAt).toLocaleDateString()}` : ""}.`);
       router.refresh();
     } catch {
@@ -113,7 +117,7 @@ export default function RobotProductView({ robot }: { robot: RobotProduct }) {
         <label className="product-plan-select">Choose a plan<select value={planId} onChange={(event) => setPlanId(event.target.value)}>{robot.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.currency} {formatPrice(plan.price)} · {plan.durationDays} days</option>)}</select></label>
       </div>
       <div className="product-checkout-actions">
-        <button className="product-subscribe-button" type="button" onClick={() => void subscribe()} disabled={!selectedPlan || checkoutBusy}>{checkoutBusy ? "Processing…" : "Subscribe now"}{selectedPlan && <span> · RWF {formatPrice(selectedPlan.price)} from Main Balance</span>}</button>
+        <button className="product-subscribe-button" type="button" onClick={() => void subscribe()} disabled={!selectedPlan || checkoutBusy || Boolean(checkoutNotice)}>{checkoutBusy ? "Processing…" : checkoutNotice ? "Subscription active" : "Subscribe now"}{selectedPlan && <span> · RWF {formatPrice(selectedPlan.price)} from Main Balance</span>}</button>
         {checkoutError && <p className="auth-error" role="alert">{checkoutError} {checkoutError.includes("Main Balance") && <Link href="/account/recharge">Recharge</Link>}</p>}
         {checkoutNotice && <p className="finance-success" role="status">{checkoutNotice} <Link href="/account/my-robots">View My Robots</Link></p>}
         <small className="product-checkout-disclaimer">One-time charge. This subscription does not guarantee trading returns.</small>

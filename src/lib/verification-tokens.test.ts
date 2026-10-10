@@ -15,6 +15,8 @@ describe("mailer helpers", () => {
   afterEach(() => {
     delete process.env.MAIL_DRIVER;
     delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.MAIL_FROM;
     vi.restoreAllMocks();
   });
 
@@ -41,6 +43,13 @@ describe("mailer helpers", () => {
 
   it("fails loudly when an unimplemented driver is selected", async () => {
     process.env.MAIL_DRIVER = "smtp";
-    await expect(sendMail({ to: "a@example.com", subject: "x", text: "y" })).rejects.toThrow("MAIL_DRIVER=smtp is not configured");
+    await expect(sendMail({ to: "a@example.com", subject: "x", text: "y" })).rejects.toThrow("MAIL_DRIVER=smtp is not supported");
+  });
+
+  it("requires API configuration before using the resend driver", async () => {
+    process.env.MAIL_DRIVER = "resend";
+    delete process.env.RESEND_API_KEY;
+    delete process.env.MAIL_FROM;
+    await expect(sendMail({ to: "a@example.com", subject: "x", text: "y" })).rejects.toThrow("requires RESEND_API_KEY and MAIL_FROM");
   });
 });

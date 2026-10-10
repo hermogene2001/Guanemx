@@ -1,5 +1,11 @@
 # Recharge and withdrawal operations
 
+## Robot subscriptions
+
+Clients select an active robot plan from the marketplace and pay its displayed RWF price from Main Balance. Checkout creates an active subscription with a fixed start and expiry time, a completed subscription transaction, and a negative Main Balance ledger entry in one serializable database transaction. The API accepts an idempotency key so retrying the same request does not charge twice. Subscription checkout does not promise returns and does not credit earnings.
+
+`POST /api/cron/subscriptions` expires subscriptions whose expiry time has passed and deletes expired verification tokens and sessions. Call it from a deployment scheduler at least daily with `Authorization: Bearer $CRON_SECRET`. The repository does not configure a scheduler.
+
 ## Recharge
 
 Recharge requests are manual. The app chooses an active `AGENT` account that has a phone number, assigns the pending request to that agent, and shows the client the agent's contact details. Creating a request does not change any wallet balance. An assigned agent confirms receipt from `/agent/requests`; confirmation credits the client's Main Balance and writes the recharge transaction and wallet-ledger entry in one database transaction. Rejection does not credit a balance.

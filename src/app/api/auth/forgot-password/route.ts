@@ -27,11 +27,15 @@ export async function POST(request: NextRequest) {
       await tx.auditLog.create({ data: { actorUserId: user.id, action: "account.password_reset_requested", entityType: "User", entityId: user.id } });
       return issued;
     });
-    await sendMail({
-      to: email,
-      subject: "Reset your GuanemX password",
-      text: `A password reset was requested for your GuanemX account. Open this link within 1 hour to choose a new password:\n\n${verificationLink("reset-password", token)}\n\nIf you did not request this, you can ignore this message.`,
-    });
+    try {
+      await sendMail({
+        to: email,
+        subject: "Reset your GuanemX password",
+        text: `A password reset was requested for your GuanemX account. Open this link within 1 hour to choose a new password:\n\n${verificationLink("reset-password", token)}\n\nIf you did not request this, you can ignore this message.`,
+      });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "password_reset_email_delivery_failed", message: error instanceof Error ? error.message : "unknown error" }));
+    }
   }
   // The response is identical whether or not the account exists (no enumeration).
   return NextResponse.json({ ok: true });

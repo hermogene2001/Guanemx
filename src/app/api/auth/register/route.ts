@@ -44,11 +44,15 @@ export async function POST(request: NextRequest) {
       const verificationToken = await createVerificationToken(tx, user.id, "verify-email", VERIFY_EMAIL_TTL_MS);
       return verificationToken;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    await sendMail({
-      to: email,
-      subject: "Verify your GuanemX email",
-      text: `Welcome to GuanemX! Verify your email to activate your account:\n\n${verificationLink("verify-email", result)}\n\nThis link is valid for 24 hours.`,
-    });
+    try {
+      await sendMail({
+        to: email,
+        subject: "Verify your GuanemX email",
+        text: `Welcome to GuanemX! Verify your email to activate your account:\n\n${verificationLink("verify-email", result)}\n\nThis link is valid for 24 hours.`,
+      });
+    } catch (error) {
+      console.error(JSON.stringify({ event: "verification_email_delivery_failed", message: error instanceof Error ? error.message : "unknown error" }));
+    }
     return NextResponse.json({ user: { name, email }, next: "/verify-email?sent=1" }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_INVITATION_CODE") return NextResponse.json({ error: "That invitation code is not valid." }, { status: 400 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getCurrentUser, sameOriginRequest } from "@/lib/auth";
+import { recordAudit } from "@/lib/finance";
 import { prisma } from "@/lib/prisma";
 
 const schema = z.object({
@@ -18,7 +19,11 @@ export async function PATCH(request: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Enter valid profile details." }, { status: 400 });
   try {
-    const updated = await prisma.user.update({ where: { id: user.id }, data: parsed.data, select: { name: true, email: true, phone: true } });
+    const updated = await prisma.$transaction(async (tx) => {
+      const profile = await tx.user.update({ where: { id: user.id }, data: parsed.data, select: { name: true, email: true, phone: true } });
+      await recordAudit(tx, request, user.id, "account.profile_updated", "User", user.id, { phoneUpdated: parsed.data.phone !== undefined });
+      return profile;
+    });
     return NextResponse.json({ user: updated });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return NextResponse.json({ error: "That phone number is already associated with another account." }, { status: 409 });

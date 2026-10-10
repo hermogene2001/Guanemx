@@ -106,6 +106,18 @@ export async function POST(request: NextRequest) {
     }, { status: result.replayed ? 200 : 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && (error.code === "P2002" || error.code === "P2034")) {
+      const previous = await prisma.subscription.findUnique({
+        where: { idempotencyKey: parsed.data.idempotencyKey },
+        include: { robot: { select: { name: true } }, robotPlan: { select: { name: true } } },
+      });
+      if (previous?.userId === user.id) return NextResponse.json({
+        subscription: {
+          id: previous.id, status: previous.status, robot: previous.robot.name, plan: previous.robotPlan.name,
+          price: previous.price.toFixed(2), currency: previous.currency,
+          startAt: previous.startAt?.toISOString() ?? null, expiresAt: previous.expiresAt?.toISOString() ?? null,
+        },
+        replayed: true,
+      });
       return NextResponse.json({ error: "Checkout conflicted with another wallet operation. Refresh your wallet and retry." }, { status: 409 });
     }
     console.error(JSON.stringify({ event: "robot_subscription_checkout_failed", message: error instanceof Error ? error.message : "unknown error" }));
