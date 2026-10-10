@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GuanemX V1 prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+:root{
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  --page:#E3E8F0;--bg:#EEF1F6;--panel:#FFFFFF;--panel2:#F3F5F9;--line:#DCE2ED;--text:#0E1526;--muted:#5A6781;
+  --brand:#E3B04B;--brand-ink:#1A1405;--brand-text:#8F5E06;--brand-soft:rgba(227,176,75,.22);
+  --up:#0B8F62;--down:#D13B4A;--info:#2F6FE4;--up-soft:rgba(11,143,98,.12);--down-soft:rgba(209,59,74,.12);
+  --grid:rgba(14,21,38,.08);--frame:#C4CCDC;--tag-ink:#FFFFFF;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --page:#05080F;--bg:#090D16;--panel:#0F1626;--panel2:#151E32;--line:#22304A;--text:#E8EDF6;--muted:#8B98B2;
+    --brand-text:#EBBE62;--brand-soft:rgba(227,176,75,.16);--up:#2ECC8F;--down:#F26D78;--info:#6EA8FE;
+    --up-soft:rgba(46,204,143,.14);--down-soft:rgba(242,109,120,.14);--grid:rgba(139,152,178,.11);--frame:#1B2438;--tag-ink:#07110D;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#05080F;--bg:#090D16;--panel:#0F1626;--panel2:#151E32;--line:#22304A;--text:#E8EDF6;--muted:#8B98B2;
+  --brand-text:#EBBE62;--brand-soft:rgba(227,176,75,.16);--up:#2ECC8F;--down:#F26D78;--info:#6EA8FE;
+  --up-soft:rgba(46,204,143,.14);--down-soft:rgba(242,109,120,.14);--grid:rgba(139,152,178,.11);--frame:#1B2438;--tag-ink:#07110D;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;height:100%;background:var(--page);color:var(--text);font:400 15px/1.5 "Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+h1,h2,h3{font-family:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;margin:0;letter-spacing:-.015em;line-height:1.15}
+h1{font-size:28px;font-weight:700}h2{font-size:22px;font-weight:700}h3{font-size:16px;font-weight:700;margin-bottom:12px}
+p{margin:0}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)}.dn{color:var(--down)}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* page chrome */
+.viewer{height:56px;flex:none;display:flex;align-items:center;gap:14px;padding:0 16px}
+.viewer .t{display:flex;align-items:center;gap:10px;font-weight:600}
+.viewer .n{color:var(--muted);font-size:13px}
+.spacer{flex:1}
+.wrap{flex:1;min-height:0;display:flex;justify-content:center;padding:0 16px 16px}
+.stage{flex:1;max-width:1360px;min-width:0;position:relative;overflow:hidden;background:var(--bg);border:1px solid var(--line);border-radius:18px;container:stage/inline-size}
+.stage.phone{flex:none;width:392px;max-width:100%;height:min(100%,860px);align-self:center;border:9px solid var(--frame);border-radius:44px}
+#app{height:100%}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;max-width:100%}
+.seg button{border:0;background:transparent;height:30px;padding:0 12px;border-radius:7px;display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-weight:500;font-size:13px;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--panel2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.seg.scroll{overflow-x:auto;scrollbar-width:none}
+.iconbtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--panel);display:inline-grid;place-items:center}
+@media (max-width:700px){
+  .viewer{display:none}
+  .wrap{padding:0}
+  .stage,.stage.phone{width:100%;max-width:none;height:100%;border:0;border-radius:0;flex:1}
+}
+
+/* shared controls */
+.btn{height:40px;padding:0 16px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);font-weight:600;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.brand{background:var(--brand);color:var(--brand-ink);border-color:transparent}
+.btn.brand:hover{filter:brightness(1.06)}
+.btn.sm{height:32px;padding:0 12px;font-size:13px}
+.btn.block{width:100%}
+.btn.danger{color:var(--down)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.link{background:none;border:0;padding:0;color:var(--brand-text);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--panel2);border:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+.pill.up{background:var(--up-soft);border-color:transparent;color:var(--up)}
+.pill.dn{background:var(--down-soft);border-color:transparent;color:var(--down)}
+.pill.warn,.pill.brand{background:var(--brand-soft);border-color:transparent;color:var(--brand-text)}
+.pill.tier::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label,.lbl{font-size:13px;color:var(--muted);font-weight:500}
+.field input,.sel,.mini{height:42px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);padding:0 12px;width:100%}
+.sel{width:auto;height:38px;padding:0 10px}
+.mini{width:110px;height:34px}
+.field input::placeholder{color:var(--muted)}
+.pw{position:relative}
+.pw .icon{position:absolute;right:4px;top:4px;width:34px;height:34px;border:0;background:none;color:var(--muted);display:grid;place-items:center}
+.err{color:var(--down);font-size:13px;min-height:20px;margin:-4px 0 8px}
+.sw{position:relative;display:inline-block;width:44px;height:26px;flex:none}
+.sw input{position:absolute;inset:0;opacity:0;margin:0;width:100%;height:100%;cursor:pointer}
+.sw span{position:absolute;inset:0;border-radius:99px;background:var(--line);transition:background .15s}
+.sw span::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw input:checked+span{background:var(--up)}
+.sw input:checked+span::after{transform:translateX(18px)}
+.sw input:focus-visible+span{outline:2px solid var(--info);outline-offset:2px}
+.note{display:flex;gap:8px;align-items:flex-start;color:var(--muted);font-size:13px;margin-top:14px}
+.note .i{margin-top:2px;width:16px;height:16px}
+.empty{color:var(--muted);padding:20px 0;text-align:center}
+.sm{color:var(--muted);font-size:13px}
+
+/* auth */
+.auth{height:100%;display:grid;grid-template-columns:minmax(360px,470px) minmax(0,1fr)}
+.auth-form{padding:36px 44px;overflow:auto;display:flex;flex-direction:column;background:var(--panel)}
+.brand{display:flex;align-items:center;gap:10px;font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:700;font-size:20px;letter-spacing:-.01em}
+.auth-form h1{margin-top:44px}
+.auth-form .sub{margin:8px 0 24px;color:var(--muted)}
+.row-end{display:flex;justify-content:flex-end;margin:-6px 0 16px;font-size:13px}
+.or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;margin:18px 0}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.social{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.switch{text-align:center;margin-top:20px;font-size:14px;color:var(--muted)}
+.hint{margin-top:14px;font-size:12.5px;color:var(--muted);text-align:center}
+.trio{list-style:none;margin:auto 0 0;padding:28px 0 0;display:grid;gap:14px}
+.trio li{display:flex;gap:12px;font-size:13px;color:var(--muted)}
+.trio b{display:block;color:var(--text);font-size:14px}
+.trio .i{margin-top:2px;color:var(--brand-text)}
+.hero{background:#0A0F1A;color:#E8EDF6;display:flex;flex-direction:column;min-height:0;min-width:0}
+.hero-chart{flex:1;position:relative;min-height:180px}
+.hero-chart canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hero-copy{padding:8px 48px 44px;max-width:640px}
+.hero-px{display:flex;align-items:baseline;gap:12px;margin-bottom:14px;color:#8B98B2;font-size:14px}
+.hero-px b{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:30px;color:#E8EDF6;font-weight:700;font-variant-numeric:tabular-nums}
+.hero h2{font-size:34px;line-height:1.1}
+.hero p{margin-top:12px;color:#8B98B2;max-width:46ch}
+
+/* shell */
+.shell{height:100%;display:grid;grid-template-columns:236px minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+.side{background:var(--panel);border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:6px;overflow:auto}
+.side .brand{padding:2px 8px 18px}
+.side-h{padding:0 10px 4px;font-size:13px;color:var(--muted);font-weight:600}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-i{position:relative;display:flex;align-items:center;gap:12px;width:100%;height:40px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:500;text-align:left}
+.nav-i:hover{background:var(--panel2);color:var(--text)}
+.nav-i[aria-current="page"]{background:var(--panel2);color:var(--text)}
+.nav-i[aria-current="page"]::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--brand)}
+.bdg{margin-left:auto;font-style:normal;font-size:12px;font-weight:700;background:var(--brand);color:var(--brand-ink);border-radius:99px;padding:0 7px;line-height:18px}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:2px;padding-top:12px;border-top:1px solid var(--line)}
+.me{display:flex;align-items:center;gap:10px;padding:10px 8px 0}
+.me b{display:block;font-size:14px;line-height:1.2}
+.me span{font-size:12px;color:var(--muted)}
+.avatar{width:36px;height:36px;border-radius:50%;border:0;background:var(--brand);color:var(--brand-ink);font-weight:700;font-size:13px;display:grid;place-items:center;flex:none}
+.main{display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;min-height:0}
+.top{display:flex;align-items:center;gap:12px;padding:10px 24px;border-bottom:1px solid var(--line);background:var(--panel)}
+.top-l{flex:1;min-width:0}
+.top-note{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px}
+.top-note .i{width:16px;height:16px}
+.top-brand{display:none;align-items:center;gap:8px;font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:700}
+.chip{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;padding:4px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.chip span{font-size:11px;color:var(--muted)}
+.chip b{font-size:15px}
+.content{overflow:auto;padding:26px 28px 40px;min-height:0}
+.tabbar{display:none}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.ph .sub{color:var(--muted);margin-top:6px;max-width:60ch}
+.acts{display:flex;gap:10px;flex-wrap:wrap}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+.panel.nopad{padding:0;overflow:hidden}
+.panel h3+.sm{margin-top:-8px;margin-bottom:12px}
+.ph-r{display:flex;align-items:center;gap:10px}
+.strip{display:grid;grid-template-columns:1.5fr repeat(3,1fr);padding:0;overflow:hidden;margin-bottom:16px}
+.strip .cell{padding:18px 20px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:4px;justify-content:center}
+.strip .cell:first-child{border-left:0}
+.strip .big{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:40px;line-height:1.05;font-weight:700;letter-spacing:-.02em}
+.strip .mid{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-size:26px;font-weight:700;letter-spacing:-.01em}
+.strip small{color:var(--muted);font-size:12px}
+.strip .acts{margin-top:10px}
+.g2{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:16px;align-items:start}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px;align-items:start}
+.chartg{grid-template-columns:minmax(0,1fr) 270px}
+.cv{position:relative;height:260px}
+.cv.tall{height:clamp(300px,52vh,500px)}
+.cv canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
+.ctl{display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ohlc{display:flex;gap:22px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);min-height:46px}
+.ohlc b{color:var(--text);font-weight:600;margin-left:6px;font-variant-numeric:tabular-nums}
+.watch{display:flex;flex-direction:column}
+.watch button{display:flex;align-items:center;justify-content:space-between;gap:10px;border:0;border-top:1px solid var(--line);background:none;padding:10px 4px;text-align:left}
+.watch button:first-child{border-top:0}
+.watch button[aria-current="true"]{background:var(--panel2);border-radius:8px}
+.watch .px{text-align:right;font-variant-numeric:tabular-nums}
+.watch .px small{display:block;font-size:12px}
+
+/* rows */
+.list{display:flex;flex-direction:column}
+.lrow{display:flex;align-items:center;gap:14px;padding:13px 0;border-top:1px solid var(--line)}
+.lrow:first-child{border-top:0}
+.lrow .grow{flex:1;min-width:0}
+.lrow .nm{font-weight:600}
+.col{min-width:92px;text-align:right}
+.col small{display:block;color:var(--muted);font-size:12px}
+.bot{display:block;border-radius:12px;flex:none}
+.ti{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ti.in{background:var(--up-soft);color:var(--up)}
+.ti.out{background:var(--down-soft);color:var(--down)}
+.tabs{margin-bottom:14px}
+.filters{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.search{position:relative;flex:1;min-width:180px;max-width:320px}
+.search .i{position:absolute;left:12px;top:11px;color:var(--muted);width:16px;height:16px}
+.search input{width:100%;height:38px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);padding:0 12px 0 36px}
+
+/* robot detail */
+.back{display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--muted);font-weight:500;padding:0;margin-bottom:16px}
+.rd{display:grid;grid-template-columns:150px minmax(0,1fr);gap:24px;align-items:center}
+.facts{display:grid;grid-template-columns:repeat(4,auto);gap:8px 32px;justify-content:start;margin:16px 0 18px}
+.facts div{display:flex;flex-direction:column}
+.facts span{font-size:12px;color:var(--muted)}
+.facts b{font-size:16px}
+.stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line);margin-top:14px}
+.stats4 div{padding:14px 0;display:flex;flex-direction:column}
+.stats4 span{font-size:12px;color:var(--muted)}
+.stats4 b{font-size:20px;font-family:"Bricolage Grotesque",system-ui,sans-serif}
+.acc{border-top:1px solid var(--line);padding:12px 0}
+.acc:first-of-type{border-top:0}
+.acc summary{font-weight:600;cursor:pointer}
+.acc p{color:var(--muted);margin-top:8px}
+.rev{padding:12px 0;border-top:1px solid var(--line)}
+.rev:first-of-type{border-top:0}
+.star{color:var(--brand);width:15px;height:15px;fill:currentColor;stroke:none}
+.bul{margin:0;padding-left:18px;color:var(--muted);display:grid;gap:8px}
+.bul b{color:var(--text)}
+
+/* wallet */
+.wal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:0;overflow:hidden;margin-bottom:16px}
+.wal>div{padding:16px 18px;border-left:1px solid var(--line);display:flex;gap:12px;align-items:center}
+.wal>div:first-child{border-left:0}
+.coin{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;color:#fff;flex:none}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.opt{position:relative}
+.opt input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.opt span{display:block;text-align:center;padding:10px 6px;border:1px solid var(--line);border-radius:9px;font-size:13px;font-weight:600;background:var(--panel2)}
+.opt input:checked+span{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.opt input:focus-visible+span{outline:2px solid var(--info);outline-offset:2px}
+.quick{display:flex;gap:8px;margin:-6px 0 14px}
+
+/* chat */
+.chatg{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start}
+.chat{display:flex;flex-direction:column;height:520px;padding:0}
+.chat-h{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.msgs{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.msg{display:flex;gap:10px;max-width:86%}
+.msg.me{align-self:flex-end;flex-direction:row-reverse}
+.msg .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;font-weight:700;flex:none}
+.bub{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.msg.me .bub{background:var(--brand-soft);border-color:transparent}
+.bub b{font-size:13px}.bub time{font-size:12px;color:var(--muted);margin-left:8px}
+.bub p{margin-top:2px}
+.compose{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.compose input{flex:1;height:42px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);padding:0 12px;min-width:0}
+.rail{display:flex;flex-direction:column;gap:16px}
+.room{display:flex;justify-content:space-between;width:100%;border:0;background:none;padding:9px 10px;border-radius:8px;color:var(--muted);font-weight:500;text-align:left}
+.room[aria-current="true"]{background:var(--panel2);color:var(--text)}
+.mem{display:flex;align-items:center;gap:10px;padding:6px 0}
+.mem .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--up);margin-left:auto}
+
+/* profile */
+.pf{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;align-items:start}
+.pf .avatar{width:96px;height:96px;font-size:30px;margin:0 auto 12px}
+.dl{margin:0}
+.dl div{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line)}
+.dl div:first-child{border-top:0}
+.dl dt{color:var(--muted)}.dl dd{margin:0;font-weight:500;text-align:right}
+.setrow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--line)}
+.setrow:first-of-type{border-top:0}
+
+/* admin */
+.bars{display:flex;gap:10px;align-items:flex-end;height:180px;padding-top:24px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;gap:6px;font-size:12px;color:var(--muted)}
+.bar i{display:block;width:100%;max-width:34px;background:var(--info);border-radius:5px 5px 0 0;min-height:4px}
+.bar em{font-style:normal;font-size:11px}
+.donutw{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.donut{width:132px;height:132px;flex:none}
+.donut .d1{font:700 17px "Bricolage Grotesque",system-ui,sans-serif;fill:var(--text)}
+.donut .d2{font-size:8px;fill:var(--muted)}
+.leg{display:grid;gap:6px;font-size:13px}
+.leg span{display:flex;gap:8px;align-items:center;color:var(--muted)}
+.leg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.tag{display:inline-flex}
+
+/* modal + toast */
+.modal{position:absolute;inset:0;z-index:20;display:grid;place-items:center;padding:16px}
+.scrim{position:absolute;inset:0;background:rgba(5,8,15,.62)}
+.dlg{position:relative;width:min(460px,100%);max-height:100%;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+.dlg h2{margin-bottom:6px}
+.dlg .sub{color:var(--muted);margin-bottom:18px;font-size:14px}
+.dlg .acts{margin-top:8px;justify-content:flex-end}
+.dlg .x{position:absolute;right:12px;top:12px;width:32px;height:32px;border:0;background:none;color:var(--muted);display:grid;place-items:center}
+.sumrow{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}
+.chk{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted);margin:14px 0}
+.chk input{margin-top:3px}
+.sheetrow{display:flex;align-items:center;gap:14px;width:100%;height:48px;border:0;border-top:1px solid var(--line);background:none;text-align:left;font-weight:500}
+.toast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:30;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:calc(100% - 32px)}
+.toast div{background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:500}
+
+/* narrow layout: follows the app width, so the Phone toggle works on desktop too */
+@container stage (max-width:860px){
+  .auth{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);overflow:auto}
+  .hero{order:-1}
+  .hero-chart{min-height:150px;flex:none;height:150px}
+  .hero-copy{display:none}
+  .auth-form{padding:24px 20px;overflow:visible}
+  .auth-form h1{margin-top:22px}
+  .shell{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}
+  .side{display:none}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);background:var(--panel);padding:6px 4px}
+  .tabbar button{border:0;background:none;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;padding:6px 0}
+  .tabbar button[aria-current="page"]{color:var(--text)}
+  .tabbar button[aria-current="page"] .i{color:var(--brand-text)}
+  .top{padding:10px 16px}
+  .top-note{display:none}
+  .top-brand{display:flex}
+  .content{padding:18px 16px 28px}
+  h1{font-size:24px}
+  .strip{grid-template-columns:1fr 1fr}
+  .strip .cell{border-left:0;border-top:1px solid var(--line);padding:14px 16px}
+  .strip .cell:first-child{grid-column:1/-1;border-top:0}
+  .strip .cell:nth-child(3),.strip .cell:nth-child(5){border-left:1px solid var(--line)}
+  .strip .big{font-size:34px}
+  .g2,.chartg,.g3,.chatg,.pf{grid-template-columns:minmax(0,1fr)}
+  .xtra{display:none}
+  .lrow{gap:10px}
+  .rd{grid-template-columns:84px minmax(0,1fr);gap:14px;align-items:start}
+  .facts{grid-template-columns:repeat(2,auto)}
+  .stats4{grid-template-columns:repeat(2,1fr)}
+  .wal{grid-template-columns:1fr}
+  .wal>div{border-left:0;border-top:1px solid var(--line)}
+  .wal>div:first-child{border-top:0}
+  .chat{height:460px}
+  .rail .panel:last-child{display:none}
+  .modal{place-items:end center;padding:0}
+  .dlg{width:100%;border-radius:18px 18px 0 0;border-bottom:0}
+  .toast{bottom:88px}
+  .hero-px{margin:0}
+  .robot-row-cta{width:100%}
+}
+@container stage (max-width:520px){
+  .lrow.wrapm{flex-wrap:wrap}
+  .lrow.wrapm .col{min-width:0;text-align:left}
+  .opts{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="viewer">
+  <div class="t" id="v-brand"></div>
+  <span class="n">Interactive V1 prototype</span>
+  <span class="spacer"></span>
+  <div class="seg" role="group" aria-label="Preview size">
+    <button data-a="dev" data-d="desktop" aria-pressed="true"></button>
+    <button data-a="dev" data-d="phone" aria-pressed="false"></button>
+  </div>
+  <button class="iconbtn" data-a="theme" id="theme-btn" aria-label="Switch light or dark theme"></button>
+</div>
+<div class="wrap">
+  <div class="stage" id="stage">
+    <div id="app"></div>
+    <div class="modal" id="modal" hidden></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const round=n=>Math.round(n*100)/100;
+const fmt$=(n,sign)=>{const a=Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});return (n<0?'\u2212':(sign&&n>0?'+':''))+'$'+a};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const p2=n=>String(n).padStart(2,'0');
+const fd=d=>p2(d.getDate())+' '+MON[d.getMonth()]+' '+d.getFullYear();
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const TODAY=new Date(2026,8,21);
+const nowStr=()=>{const n=new Date();return fd(TODAY)+' '+p2(n.getHours())+':'+p2(n.getMinutes())};
+const rng=seed=>function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+const seedOf=str=>{let h=2166136261;for(const ch of str){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0};
+let UID=100;const uid=()=>'u'+(UID++);
+
+const ICONS={
+ home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+ candle:'<path d="M7 3v4M7 17v4M17 5v3M17 15v4"/><rect x="4.5" y="7" width="5" height="10" rx="1"/><rect x="14.5" y="8" width="5" height="7" rx="1"/>',
+ robot:'<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 8V5"/><circle cx="12" cy="4" r="1"/><circle cx="9.5" cy="13" r="1"/><circle cx="14.5" cy="13" r="1"/><path d="M3 12v3M21 12v3"/>',
+ brief:'<rect x="3.5" y="7" width="17" height="12" rx="2"/><path d="M9 7V5h6v2M3.5 12h17"/>',
+ wallet:'<path d="M4 7h14a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V7z"/><path d="M4 7l11-3v3"/><circle cx="16" cy="13.5" r="1"/>',
+ list:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+ chat:'<path d="M4 5h16v11H9l-5 4V5z"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+ users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 010 7M18 14.5c2.2.6 3.5 2.3 3.5 5.5"/>',
+ sliders:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+ logout:'<path d="M9 4H5v16h4M16 8l4 4-4 4M20 12H9"/>',
+ eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ down:'<path d="M12 4v12M7 11l5 5 5-5M5 20h14"/>',
+ up:'<path d="M12 20V8M7 13l5-5 5 5M5 4h14"/>',
+ search:'<circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/>',
+ star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z"/>',
+ shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/>',
+ left:'<path d="M15 5l-7 7 7 7"/>',
+ more:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+ send:'<path d="M4 12l16-8-6 16-2-7-8-1z"/>',
+ monitor:'<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+ phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+ lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
+ alert:'<path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4M12 17h.01"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+ sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/>',
+ moon:'<path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/>'
+};
+const ic=(n,c='')=>`<svg class="i ${c}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const logo=(s=30)=>`<svg width="${s}" height="${s}" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#E3B04B"/><path d="M9.5 9.5l13 13" stroke="#1A1405" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/><path d="M9.5 22.5l13-13M15 9.5h7.5V17" stroke="#1A1405" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+
+const TIER={starter:'#5CCBC0',pro:'#6EA8FE',vip:'#B08CFF',ultimate:'#E3B04B'};
+function bot(r,size=56){
+  const c=r.color,ex={
+    starter:'',
+    pro:`<path d="M9 26v12M55 26v12" stroke="${c}" stroke-width="3" stroke-linecap="round"/>`,
+    vip:`<path d="M24 17l-2-8M40 17l2-8" stroke="${c}" stroke-width="3" stroke-linecap="round"/><circle cx="22" cy="8" r="2.5" fill="${c}"/><circle cx="42" cy="8" r="2.5" fill="${c}"/>`,
+    ultimate:`<path d="M20 17l3-9 5 6 4-9 4 9 5-6 3 9" stroke="${c}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" fill="none"/>`
+  }[r.id];
+  const ant=r.id==='vip'||r.id==='ultimate'?'':`<path d="M32 10v7" stroke="${c}" stroke-width="3" stroke-linecap="round"/><circle cx="32" cy="9" r="3" fill="${c}"/>`;
+  return `<svg class="bot" width="${size}" height="${size}" viewBox="0 0 64 64" role="img" aria-label="${esc(r.name)} avatar"><rect width="64" height="64" rx="14" fill="${c}" fill-opacity=".16"/>${ant}${ex}<rect x="14" y="17" width="36" height="32" rx="12" fill="#0D1424" stroke="${c}" stroke-width="2.5"/><rect x="19" y="26" width="26" height="11" rx="5.5" fill="${c}" fill-opacity=".24"/><circle cx="26" cy="31.5" r="3" fill="${c}"/><circle cx="38" cy="31.5" r="3" fill="${c}"/><path d="M26 43h12" stroke="${c}" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+}
+
+/* ---------- data ---------- */
+const S={
+  view:'login',mode:'user',authMode:'login',theme:'system',dev:'desktop',
+  robotId:'pro',robotTab:'Performance',rf:'All',q:'',mtab:'active',xtab:'all',wtab:'all',room:'general',dper:'90',
+  user:{name:'Yves Trader',first:'Yves',email:'yvestrader@gmail.com',phone:'+250 788 123 456',country:'Rwanda',since:'15 Jun 2026',plan:'Pro member',twofa:true},
+  notif:{expiry:true,payments:true,mentions:false},
+  wallets:{usd:1050.25,btc:120.50,usdt:80.00},spent:930.00,
+  robots:[
+    {id:'starter',name:'GuanemX Starter',tier:'Beginner',days:30,price:49.99,risk:'Low',type:'Rule-based algorithm',color:TIER.starter,rating:4.5,reviews:212,sold:1465,listed:true,desc:'A cautious, simple strategy for people new to automated trading.',stats:{trades:96,win:57.8,dd:6.2,profit:90.4}},
+    {id:'pro',name:'GuanemX Pro',tier:'Pro',days:90,price:129.99,risk:'Medium',type:'AI-assisted algorithm',color:TIER.pro,rating:4.8,reviews:128,sold:977,listed:true,desc:'A balanced strategy that adjusts position size to market volatility.',stats:{trades:256,win:61.4,dd:12.45,profit:320.5}},
+    {id:'vip',name:'GuanemX VIP',tier:'Advanced',days:180,price:199.99,risk:'Medium to high',type:'AI-assisted algorithm',color:TIER.vip,rating:4.6,reviews:74,sold:488,listed:true,desc:'A more active strategy for experienced users who accept larger swings.',stats:{trades:318,win:63.1,dd:15.8,profit:540.2}},
+    {id:'ultimate',name:'GuanemX Ultimate',tier:'VIP',days:365,price:299.99,risk:'High',type:'Multi-strategy AI',color:TIER.ultimate,rating:4.4,reviews:41,sold:326,listed:true,desc:'Our widest strategy set, built for a full year with the highest risk level.',stats:{trades:402,win:64.7,dd:19.3,profit:812.6}}
+  ],
+  mine:[
+    {uid:'m1',rid:'pro',start:new Date(2026,7,20),expires:new Date(2026,10,20),profit:120.00,pct:12.00},
+    {uid:'m2',rid:'vip',start:new Date(2026,7,15),expires:new Date(2027,1,15),profit:150.50,pct:15.05},
+    {uid:'m3',rid:'starter',start:new Date(2026,7,28),expires:new Date(2026,8,27),profit:50.00,pct:5.02},
+    {uid:'m4',rid:'starter',start:new Date(2026,5,20),expires:new Date(2026,6,20),profit:30.20,pct:3.02}
+  ],
+  tx:[
+    {type:'Deposit',method:'USDT TRC20',amt:200,status:'Completed',date:'02 Sep 2026 10:30'},
+    {type:'Subscription',method:'GuanemX Pro',amt:-129.99,status:'Completed',date:'20 Aug 2026 09:15'},
+    {type:'Deposit',method:'Perfect Money',amt:300,status:'Completed',date:'15 Aug 2026 12:20'},
+    {type:'Withdrawal',method:'USDT TRC20',amt:-150,status:'Completed',date:'10 Aug 2026 14:45'},
+    {type:'Subscription',method:'GuanemX VIP',amt:-199.99,status:'Completed',date:'15 Aug 2026 10:10'},
+    {type:'Deposit',method:'Bitcoin',amt:100,status:'Completed',date:'05 Aug 2026 16:40'}
+  ],
+  queue:[
+    {id:'q1',user:'Sarah Johnson',amt:250,method:'USDT TRC20',date:'21 Sep 2026 09:12',status:'Pending'},
+    {id:'q2',user:'David Brown',amt:75,method:'Bitcoin',date:'21 Sep 2026 08:47',status:'Pending'}
+  ],
+  users:[
+    {n:'Yves Trader',e:'yvestrader@gmail.com',c:'Rwanda',j:'15 Jun 2026',r:3,st:'Active'},
+    {n:'John Doe',e:'john.doe@example.com',c:'Kenya',j:'03 Sep 2026',r:1,st:'Active'},
+    {n:'Sarah Johnson',e:'sarah.j@example.com',c:'Uganda',j:'03 Sep 2026',r:2,st:'Active'},
+    {n:'Mike Wilson',e:'mike.w@example.com',c:'Rwanda',j:'03 Sep 2026',r:0,st:'Active'},
+    {n:'David Brown',e:'david.b@example.com',c:'Tanzania',j:'03 Sep 2026',r:1,st:'Active'},
+    {n:'Amina Kamau',e:'amina.k@example.com',c:'Kenya',j:'29 Aug 2026',r:4,st:'Active'},
+    {n:'Eric Habimana',e:'eric.h@example.com',c:'Rwanda',j:'22 Aug 2026',r:0,st:'Suspended'}
+  ],
+  uq:''
+};
+const ROOMS=[{id:'general',name:'General chat',n:121},{id:'signals',name:'Signals',n:89},{id:'news',name:'Market news',n:45},{id:'vip',name:'VIP room',n:32},{id:'support',name:'Support',n:38}];
+S.msgs={
+  general:[
+    {u:'Admin GuanemX',t:'10:30',m:'Welcome to GuanemX! Please keep chat respectful. Nothing here is financial advice, and no robot can guarantee returns.'},
+    {u:'Trader John',t:'10:32',m:'Market is looking bullish today.'},
+    {u:'Sarah Trader',t:'10:34',m:'My Pro robot had a decent week on the demo numbers. Still watching the drawdown.'},
+    {u:'Pro Forex',t:'10:35',m:'Stay patient and keep position sizes small. Consistency matters more than any single day.'},
+    {u:'Mike',t:'10:36',m:'Thanks for the update, admin.'}
+  ],
+  signals:[{u:'Admin GuanemX',t:'09:05',m:'The signals feed arrives in V2. Until then, this room is for discussing market moves.'}],
+  news:[{u:'Admin GuanemX',t:'08:00',m:'High-impact economic releases can move prices fast. Check the calendar before relying on any strategy.'}],
+  vip:[{u:'Admin GuanemX',t:'09:40',m:'Welcome to the VIP room. Ask anything about the Advanced and VIP robot plans.'}],
+  support:[{u:'GuanemX Support',t:'10:00',m:'Hi! Ask your question here and an agent will reply as soon as possible.'}]
+};
+const MEMBERS=['Yves Admin','Pro Forex','Trader John','Sarah Trader','Mike'];
+const R=id=>S.robots.find(r=>r.id===id);
+const isActive=m=>m.expires>=TODAY;
+const activeMine=()=>S.mine.filter(isActive);
+const daysLeft=m=>Math.max(0,Math.ceil((m.expires-TODAY)/864e5));
+const totalBal=()=>round(S.wallets.usd+S.wallets.btc+S.wallets.usdt);
+const initials=(n=S.user.name)=>n.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+const hue=n=>'hsl('+(seedOf(n)%360)+' 42% 40%)';
+
+/* ---------- simulated market ---------- */
+const PAIRS={
+  'EUR/USD':{base:1.0984,dec:5,vol:0.00016},
+  'GBP/USD':{base:1.2712,dec:5,vol:0.0002},
+  'USD/JPY':{base:148.35,dec:3,vol:0.02},
+  'XAU/USD':{base:2384.5,dec:2,vol:0.8},
+  'BTC/USD':{base:64250,dec:2,vol:32}
+};
+Object.values(PAIRS).forEach(p=>p.live=p.base);
+const TFS={'5s':5,'15s':15,'30s':30,'1m':60,'5m':300,'15m':900,'1h':3600,'4h':14400,'D':86400};
+const market={pair:'EUR/USD',tf:'1m',cache:{},hov:null};
+const gauss=r=>(r()+r()+r()-1.5)*1.6;
+function series(pair,tf){
+  const k=pair+'|'+tf;if(market.cache[k])return market.cache[k];
+  const P=PAIRS[pair],sec=TFS[tf],r=rng(seedOf(k)),n=96;
+  const scale=P.vol*Math.sqrt(Math.max(sec,10)/60);
+  let p=P.base*(1+(r()-.5)*.002);const arr=[],t0=Date.now()-(n-1)*sec*1000;
+  for(let i=0;i<n;i++){
+    const o=p;let h=o,l=o,c=o;
+    for(let s=0;s<6;s++){c+=gauss(r)*scale;h=Math.max(h,c);l=Math.min(l,c)}
+    h+=r()*scale*.3;l-=r()*scale*.3;
+    arr.push({t:t0+i*sec*1000,o,h,l,c,v:.3+r()*.7});p=c;
+  }
+  return market.cache[k]={arr,n:0};
+}
+function tick(){
+  const s=series(market.pair,market.tf),a=s.arr,c=a[a.length-1],P=PAIRS[market.pair],sec=TFS[market.tf];
+  const sc=P.vol*Math.sqrt(Math.max(sec,10)/60)*.55;
+  c.c+=gauss(Math.random)*sc;c.h=Math.max(c.h,c.c);c.l=Math.min(c.l,c.c);c.v=Math.min(1,c.v+.04);
+  s.n++;
+  if(s.n>=10){a.push({t:c.t+sec*1000,o:c.c,h:c.c,l:c.c,c:c.c,v:.2});a.shift();s.n=0}
+  for(const k in PAIRS){if(k!==market.pair)PAIRS[k].live+=gauss(Math.random)*PAIRS[k].vol*.6}
+  PAIRS[market.pair].live=c.c;
+}
+const tl=(t,sec)=>{const d=new Date(t);if(sec>=86400)return d.getDate()+' '+MON[d.getMonth()];return p2(d.getHours())+':'+p2(d.getMinutes())+(sec<60?':'+p2(d.getSeconds()):'')};
+
+/* ---------- canvas charts ---------- */
+const CH={};
+function colors(){const s=getComputedStyle(document.documentElement),g=n=>s.getPropertyValue(n).trim();return{text:g('--text'),muted:g('--muted'),grid:g('--grid'),up:g('--up'),down:g('--down'),brand:g('--brand'),info:g('--info'),panel:g('--panel'),line:g('--line'),tag:g('--tag-ink')}}
+function setup(cv){
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;if(!W||!H)return null;
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr)}
+  const x=cv.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);return{x,W,H};
+}
+function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
+const FONT='11px "Instrument Sans",system-ui,sans-serif';
+
+function drawCandles(cv,o){
+  const c=setup(cv);if(!c)return;const {x,W,H}=c;
+  const C=Object.assign(colors(),o.pal||{});
+  const P=PAIRS[market.pair],sec=TFS[market.tf],all=series(market.pair,market.tf).arr;
+  const bare=!!o.bare,narrow=W<520;
+  const pl=bare?4:8,pr=bare?4:(narrow?58:72),pt=10,pb=bare?6:24;
+  const vis=bare?70:Math.min(all.length,narrow?44:84);
+  const d=all.slice(-vis),pw=W-pl-pr,ph=H-pt-pb;
+  const volH=bare?0:ph*.12,priceH=ph-volH-(bare?0:6);
+  let mn=Infinity,mx=-Infinity;for(const k of d){if(k.l<mn)mn=k.l;if(k.h>mx)mx=k.h}
+  const pad=(mx-mn)*.1||P.vol;mn-=pad;mx+=pad;
+  const step=pw/d.length,bw=Math.max(2,Math.min(14,step*.62));
+  const X=i=>pl+step*(i+.5),Y=v=>pt+priceH*(1-(v-mn)/(mx-mn));
+  x.font=FONT;x.lineWidth=1;
+  for(let i=0;i<=(bare?4:5);i++){
+    const v=mn+(mx-mn)*i/(bare?4:5),y=Y(v);
+    x.strokeStyle=C.grid;x.beginPath();x.moveTo(pl,y);x.lineTo(W-pr,y);x.stroke();
+    if(!bare){x.fillStyle=C.muted;x.textAlign='left';x.textBaseline='middle';x.fillText(v.toFixed(P.dec),W-pr+8,y)}
+  }
+  if(!bare){
+    const nt=narrow?4:6;x.textBaseline='top';
+    for(let k=0;k<nt;k++){
+      const i=Math.round((d.length-1)*k/(nt-1));
+      x.strokeStyle=C.grid;x.beginPath();x.moveTo(X(i),pt);x.lineTo(X(i),pt+priceH);x.stroke();
+      x.fillStyle=C.muted;x.textAlign=k===0?'left':(k===nt-1?'right':'center');
+      x.fillText(tl(d[i].t,sec),X(i)+(k===0?-bw/2:k===nt-1?bw/2:0),H-pb+7);
+    }
+    d.forEach((k,i)=>{x.fillStyle=k.c>=k.o?C.up:C.down;x.globalAlpha=.28;const vh=volH*k.v;x.fillRect(X(i)-bw/2,pt+ph-vh,bw,vh);x.globalAlpha=1});
+  }
+  d.forEach((k,i)=>{
+    const col=k.c>=k.o?C.up:C.down;x.strokeStyle=col;x.fillStyle=col;
+    x.beginPath();x.moveTo(X(i),Y(k.h));x.lineTo(X(i),Y(k.l));x.stroke();
+    const y1=Y(Math.max(k.o,k.c)),y2=Y(Math.min(k.o,k.c));x.fillRect(X(i)-bw/2,y1,bw,Math.max(1.5,y2-y1));
+  });
+  const L=d[d.length-1],up=L.c>=L.o,ly=Y(L.c);
+  if(!bare){
+    x.setLineDash([3,4]);x.strokeStyle=up?C.up:C.down;x.beginPath();x.moveTo(pl,ly);x.lineTo(W-pr,ly);x.stroke();x.setLineDash([]);
+    x.fillStyle=up?C.up:C.down;rr(x,W-pr+2,ly-9,pr-4,18,4);x.fill();
+    x.fillStyle=C.tag;x.textAlign='left';x.textBaseline='middle';x.fillText(L.c.toFixed(P.dec),W-pr+7,ly+.5);
+    if(cv._h!=null){
+      const hi=Math.max(0,Math.min(d.length-1,Math.floor((cv._h-pl)/step)));market.hov=d[hi];
+      x.setLineDash([3,3]);x.strokeStyle=C.muted;x.beginPath();x.moveTo(X(hi),pt);x.lineTo(X(hi),pt+priceH);x.moveTo(pl,Y(d[hi].c));x.lineTo(W-pr,Y(d[hi].c));x.stroke();x.setLineDash([]);
+    }else market.hov=null;
+  }
+}
+function drawLine(cv,o){
+  const c=setup(cv);if(!c)return;const {x,W,H}=c,C=colors();
+  const pl=o.pl||46,pr=10,pt=12,pb=24,pw=W-pl-pr,ph=H-pt-pb,ys=o.pts;
+  let mn=Math.min(...ys),mx=Math.max(...ys);if(o.zero!==false)mn=Math.min(mn,0);
+  mx+=(mx-mn)*.08;const rg=(mx-mn)||1;
+  const X=i=>pl+pw*i/(ys.length-1),Y=v=>pt+ph*(1-(v-mn)/rg);
+  x.font=FONT;x.lineWidth=1;
+  for(let i=0;i<=4;i++){const v=mn+rg*i/4,y=Y(v);x.strokeStyle=C.grid;x.beginPath();x.moveTo(pl,y);x.lineTo(W-pr,y);x.stroke();x.fillStyle=C.muted;x.textAlign='right';x.textBaseline='middle';x.fillText(o.fy(v),pl-8,y)}
+  const lb=o.labels,n=Math.min(5,lb.length);x.textBaseline='top';
+  for(let k=0;k<n;k++){const i=Math.round((lb.length-1)*k/(n-1||1));x.fillStyle=C.muted;x.textAlign=k===0?'left':(k===n-1?'right':'center');x.fillText(lb[i],X(i),H-pb+7)}
+  x.beginPath();ys.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v)));
+  x.strokeStyle=o.color||C.up;x.lineWidth=2;x.lineJoin='round';x.stroke();
+  x.lineTo(X(ys.length-1),Y(mn));x.lineTo(X(0),Y(mn));x.closePath();x.fillStyle=o.color||C.up;x.globalAlpha=.12;x.fill();x.globalAlpha=1;
+  if(cv._h!=null){
+    const i=Math.max(0,Math.min(ys.length-1,Math.round((cv._h-pl)/pw*(ys.length-1))));
+    x.strokeStyle=C.muted;x.lineWidth=1;x.setLineDash([3,3]);x.beginPath();x.moveTo(X(i),pt);x.lineTo(X(i),pt+ph);x.stroke();x.setLineDash([]);
+    x.fillStyle=o.color||C.up;x.beginPath();x.arc(X(i),Y(ys[i]),4,0,7);x.fill();
+    const t=lb[i]+'   '+o.fy(ys[i],true),tw=x.measureText(t).width+16,tx=Math.min(Math.max(X(i)-tw/2,pl),W-pr-tw);
+    x.fillStyle=C.text;rr(x,tx,pt+2,tw,24,6);x.fill();x.fillStyle=C.panel;x.textAlign='left';x.textBaseline='middle';x.fillText(t,tx+8,pt+14);
+  }
+}
+function perfSeries(seed,n,end){const r=rng(seed);let v=0;const a=[0];for(let i=1;i<n;i++){v+=(r()-.42)+.35;a.push(v)}const k=end/(a[n-1]||1);return a.map(y=>y*k)}
+const dayLabels=n=>Array.from({length:n},(_,i)=>{const d=addDays(TODAY,i-(n-1));return d.getDate()+' '+MON[d.getMonth()]});
+
+function drawOne(cv){const f=CH[cv.dataset.c];if(f)f(cv)}
+function redrawAll(){document.querySelectorAll('#app canvas[data-c]').forEach(drawOne)}
+function hookHover(cv){
+  if(cv._hk)return;cv._hk=1;
+  cv.addEventListener('pointermove',e=>{cv._h=e.clientX-cv.getBoundingClientRect().left;drawOne(cv);if(cv.dataset.c==='main')updateLive()});
+  cv.addEventListener('pointerleave',()=>{cv._h=null;drawOne(cv);if(cv.dataset.c==='main')updateLive()});
+}
+
+/* ---------- views ---------- */
+const NAV=[['dashboard','Dashboard','home'],['chart','Live chart','candle'],['robots','Robots','robot'],['mine','My robots','brief'],['wallet','Wallet','wallet'],['tx','Transactions','list'],['chat','Chat','chat'],['profile','Profile','user'],['settings','Settings','sliders']];
+const ANAV=[['a-overview','Overview','home'],['a-users','Users','users'],['a-robots','Robots','robot'],['a-withdrawals','Withdrawals','wallet']];
+const TABS=[['dashboard','Home','home'],['chart','Chart','candle'],['robots','Robots','robot'],['wallet','Wallet','wallet']];
+const navKey=()=>S.view==='robot'?'robots':S.view;
+const pendingQ=()=>S.queue.filter(q=>q.status==='Pending').length;
+const stc=s=>s==='Completed'||s==='Approved'||s==='Active'?'up':(s==='Rejected'||s==='Suspended'?'dn':'warn');
+const field=(id,label,type,ph,ac,val='')=>`<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="${type}" placeholder="${ph}" autocomplete="${ac}" value="${esc(val)}"></div>`;
+const tierPill=r=>`<span class="pill tier" style="--c:${r.color}">${r.tier}</span>`;
+
+function vLogin(){
+  const reg=S.authMode==='register';
+  CH.hero=cv=>drawCandles(cv,{bare:true,pal:{up:'#2ECC8F',down:'#F26D78',grid:'rgba(139,152,178,.12)'}});
+  return `<div class="auth"><section class="auth-form"><div class="brand">${logo(32)}<span>GuanemX</span></div>
+  <h1>${reg?'Create your account':'Welcome back'}</h1>
+  <p class="sub">${reg?'Sign up free. Robot plans are optional.':'Log in to continue to your account.'}</p>
+  <form data-form="login" novalidate>
+    ${reg?field('fname','Full name','text','Your full name','name'):''}
+    ${field('lid','Email or phone','text','you@example.com','username',reg?'':S.user.email)}
+    <div class="field"><label for="lpw">Password</label><div class="pw"><input id="lpw" name="lpw" type="password" autocomplete="${reg?'new-password':'current-password'}" value="demo-pass" placeholder="At least 6 characters"><button type="button" class="icon" data-a="pw-eye" aria-label="Show or hide password">${ic('eye')}</button></div></div>
+    ${reg?'':`<div class="row-end"><button type="button" class="link" data-a="forgot">Forgot password?</button></div>`}
+    <div class="err" id="auth-err" role="alert"></div>
+    <button class="btn brand block" type="submit">${reg?'Create account':'Log in'}</button>
+  </form>
+  <div class="or"><span>or</span></div>
+  <div class="social"><button class="btn" data-a="social">Google</button><button class="btn" data-a="social">Apple</button></div>
+  <p class="switch">${reg?'Already have an account?':'Don\u2019t have an account?'} <button class="link" data-a="auth-toggle">${reg?'Log in':'Register'}</button></p>
+  <p class="hint">Demo: the form is prefilled, so just press the button.</p>
+  <ul class="trio">
+    <li>${ic('candle')}<div><b>Live chart</b>Watch real-time style price movement.</div></li>
+    <li>${ic('robot')}<div><b>Robot plans</b>Clear duration, price and risk level.</div></li>
+    <li>${ic('lock')}<div><b>Secure account</b>Two-factor login and an audit trail for payments.</div></li>
+  </ul></section>
+  <aside class="hero"><div class="hero-chart"><canvas data-c="hero" aria-hidden="true"></canvas></div>
+  <div class="hero-copy"><div class="hero-px"><span id="hero-pair">EUR/USD</span><b id="hero-px">1.09840</b></div>
+  <h2>See the market live. Pick a robot that fits your risk.</h2>
+  <p>Live charts, robot plans with plain risk levels, and a wallet with a full record of every payment.</p></div></aside></div>`;
+}
+
+function vSide(){
+  const adm=S.mode==='admin',items=adm?ANAV:NAV,cur=navKey(),pend=pendingQ();
+  return `<nav class="side" aria-label="Main"><div class="brand">${logo(30)}<span>GuanemX</span></div>${adm?'<p class="side-h">Admin panel</p>':''}
+  <div class="nav">${items.map(([v,l,i])=>`<button class="nav-i" data-a="go" data-v="${v}" ${v===cur?'aria-current="page"':''}>${ic(i)}<span>${l}</span>${adm&&v==='a-withdrawals'&&pend?`<em class="bdg">${pend}</em>`:''}</button>`).join('')}</div>
+  <div class="side-foot"><button class="nav-i" data-a="admin-mode">${ic(adm?'user':'shield')}<span>${adm?'Back to user view':'Admin view (demo)'}</span></button><button class="nav-i" data-a="logout">${ic('logout')}<span>Log out</span></button>
+  <div class="me"><span class="avatar">${initials()}</span><div><b>${esc(S.user.name)}</b><span>${adm?'Administrator':S.user.plan}</span></div></div></div></nav>`;
+}
+function vTop(){
+  const adm=S.mode==='admin';
+  return `<div class="top"><div class="top-l"><div class="top-note">${ic('info')}<span>Interactive V1 prototype. All figures are simulated, and no real money or market feed is used.</span></div><div class="top-brand">${logo(26)}<span>GuanemX</span></div></div>
+  ${adm?'<span class="pill brand">Admin view</span>':`<button class="chip" data-a="go" data-v="wallet" aria-label="Open wallet"><span>Balance</span><b class="num">${fmt$(totalBal())}</b></button>`}
+  <button class="avatar" data-a="go" data-v="profile" aria-label="Open profile">${initials()}</button></div>`;
+}
+function vTabs(){
+  const cur=navKey(),adm=S.mode==='admin';
+  const t=adm?[['a-overview','Overview','home'],['a-users','Users','users'],['a-robots','Robots','robot'],['a-withdrawals','Payouts','wallet']]:TABS;
+  return `<nav class="tabbar" aria-label="Primary">${t.map(([v,l,i])=>`<button data-a="go" data-v="${v}" ${v===cur?'aria-current="page"':''}>${ic(i)}<span>${l}</span></button>`).join('')}<button data-a="more">${ic('more')}<span>More</span></button></nav>`;
+}
+
+function vDash(){
+  const act=activeMine(),profit=round(act.reduce((s,m)=>s+m.profit,0)),h=new Date().getHours();
+  const g=h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+  const n=S.dper==='30'?21:90,end=profit*(S.dper==='30'?.62:1);
+  const pts=perfSeries(seedOf('dash'+S.dper),n,end);
+  CH.perf=cv=>drawLine(cv,{pts,labels:dayLabels(n),fy:(v,t)=>(t?fmt$(v):'$'+Math.round(v))});
+  const recent=act.slice().sort((a,b)=>b.start-a.start).slice(0,3);
+  return `<header class="ph"><div><h1>${g}, ${esc(S.user.first)}</h1><p class="sub">Here is where your robots and wallet stand today.</p></div><span class="pill brand">${S.user.plan}</span></header>
+  <section class="panel strip">
+    <div class="cell"><span class="lbl">Total balance</span><b class="big num">${fmt$(totalBal())}</b><div class="acts"><button class="btn brand" data-a="deposit">${ic('down')}Deposit</button><button class="btn" data-a="withdraw">${ic('up')}Withdraw</button></div></div>
+    <div class="cell"><span class="lbl">Active robots</span><b class="mid num">${act.length}</b></div>
+    <div class="cell"><span class="lbl">Profit, active robots</span><b class="mid num up">${fmt$(profit,true)}</b><small>Demo figures</small></div>
+    <div class="cell"><span class="lbl">Total spent</span><b class="mid num">${fmt$(S.spent)}</b><small>USD wallet ${fmt$(S.wallets.usd)}</small></div>
+  </section>
+  <div class="g2"><section class="panel"><div class="ph-r" style="justify-content:space-between"><h3 style="margin:0">Performance overview</h3><select class="sel" data-i="dper" aria-label="Period"><option value="30" ${S.dper==='30'?'selected':''}>Last 30 days</option><option value="90" ${S.dper==='90'?'selected':''}>Last 90 days</option></select></div>
+  <p class="sm" style="margin:4px 0 8px">Cumulative profit across active robots. Simulated.</p>
+  <div class="cv"><canvas data-c="perf" aria-label="Cumulative profit chart"></canvas></div></section>
+  <section class="panel"><div class="ph-r" style="justify-content:space-between"><h3 style="margin:0">Recent robots</h3><button class="link" data-a="go" data-v="mine">View all</button></div>
+  <div class="list" style="margin-top:8px">${recent.length?recent.map(m=>{const r=R(m.rid);return `<div class="lrow">${bot(r,44)}<div class="grow"><div class="nm">${r.name}</div><div class="sm">Expires in ${daysLeft(m)} days</div></div><div class="col"><b class="num up">${fmt$(m.profit,true)}</b></div></div>`}).join(''):'<p class="empty">No active robots yet. Browse the marketplace to start.</p>'}</div></section></div>`;
+}
+
+function vChart(){
+  CH.main=cv=>drawCandles(cv,{});
+  const pairs=Object.keys(PAIRS).map(p=>`<option ${p===market.pair?'selected':''}>${p}</option>`).join('');
+  const tfs=Object.keys(TFS).map(t=>`<button data-a="tf" data-t="${t}" aria-pressed="${t===market.tf}">${t}</button>`).join('');
+  return `<header class="ph"><div><h1>Live chart</h1><p class="sub">Watch prices move. This chart is view-only: V1 has no buy or sell orders.</p></div><span class="pill warn">Simulated feed</span></header>
+  <div class="g2 chartg"><section class="panel nopad"><div class="ctl"><select class="sel" data-i="pair" aria-label="Market">${pairs}</select><div class="seg scroll" role="group" aria-label="Timeframe">${tfs}</div></div>
+  <div class="cv tall"><canvas data-c="main" aria-label="Live candlestick chart"></canvas></div><div class="ohlc" id="ohlc"></div></section>
+  <aside class="panel"><h3>Market watch</h3><div class="watch" id="watch"></div><p class="note">${ic('info')}<span>Placing orders arrives in V3, after payments and compliance checks are in place.</span></p></aside></div>`;
+}
+function watchHTML(){
+  return Object.keys(PAIRS).map(p=>{const P=PAIRS[p],ch=(P.live-P.base)/P.base*100;
+    return `<button data-a="watch-pair" data-p="${p}" ${p===market.pair?'aria-current="true"':''}><b>${p}</b><span class="px">${P.live.toFixed(P.dec)}<small class="${ch>=0?'up':'dn'}">${ch>=0?'+':''}${ch.toFixed(2)}%</small></span></button>`}).join('');
+}
+function updateLive(){
+  const a=series(market.pair,market.tf).arr,L=a[a.length-1],P=PAIRS[market.pair];
+  const o=$('#ohlc');
+  if(o){const k=market.hov||L,ch=k.c-k.o,pc=ch/k.o*100,f=v=>v.toFixed(P.dec);
+    o.innerHTML=`<span>Open<b>${f(k.o)}</b></span><span>High<b class="up">${f(k.h)}</b></span><span>Low<b class="dn">${f(k.l)}</b></span><span>Close<b>${f(k.c)}</b></span><span>Change<b class="${ch>=0?'up':'dn'}">${ch>=0?'+':''}${f(ch)} (${pc>=0?'+':''}${pc.toFixed(2)}%)</b></span>`}
+  const w=$('#watch');if(w)w.innerHTML=watchHTML();
+  const hp=$('#hero-px');if(hp){hp.textContent=L.c.toFixed(P.dec);$('#hero-pair').textContent=market.pair}
+}
+
+function robotRows(){
+  const q=S.q.trim().toLowerCase();
+  const list=S.robots.filter(r=>r.listed&&(S.rf==='All'||r.tier===S.rf)&&(!q||r.name.toLowerCase().includes(q)||r.tier.toLowerCase().includes(q)));
+  if(!list.length)return '<p class="empty">No robots match. Try another plan type or clear the search.</p>';
+  return list.map(r=>`<div class="lrow wrapm">${bot(r,60)}<div class="grow"><div class="nm">${r.name} ${tierPill(r)}</div><div class="sm">${r.desc}</div></div><div class="col"><b class="num">${r.days} days</b><small>Duration</small></div><div class="col"><b class="num">${fmt$(r.price)}</b><small>Price</small></div><button class="btn sm" data-a="open-robot" data-id="${r.id}">View details</button></div>`).join('');
+}
+function vRobots(){
+  const f=['All','Beginner','Pro','Advanced','VIP'].map(t=>`<button data-a="rfilter" data-f="${t}" aria-pressed="${S.rf===t}">${t}</button>`).join('');
+  return `<header class="ph"><div><h1>Robots marketplace</h1><p class="sub">Compare plans by duration, price and risk level. Every plan is a prepaid subscription.</p></div></header>
+  <section class="panel"><div class="filters"><div class="seg scroll" role="group" aria-label="Plan type">${f}</div><div class="search">${ic('search')}<input type="search" placeholder="Search robots" value="${esc(S.q)}" data-i="rsearch" data-ev="input" aria-label="Search robots"></div></div>
+  <div class="list" id="robot-list">${robotRows()}</div></section>`;
+}
+
+function vRobot(){
+  const r=R(S.robotId),st=r.stats,owns=S.mine.some(m=>m.rid===r.id&&isActive(m)),t=S.robotTab;
+  const pts=perfSeries(seedOf('r'+r.id),90,st.profit);
+  CH.rperf=cv=>drawLine(cv,{pts,labels:dayLabels(90),fy:(v,tt)=>tt?fmt$(v):'$'+Math.round(v),color:r.color});
+  const tabs=['Performance','About','Reviews','FAQ'].map(x=>`<button data-a="rtab" data-t="${x}" aria-pressed="${t===x}">${x}</button>`).join('');
+  let body='';
+  if(t==='Performance')body=`<div class="cv"><canvas data-c="rperf" aria-label="Robot performance chart, last 90 days"></canvas></div>
+    <div class="stats4"><div><span>Total profit</span><b class="up num">${fmt$(st.profit,true)}</b></div><div><span>Total trades</span><b class="num">${st.trades}</b></div><div><span>Win rate</span><b class="num">${st.win}%</b></div><div><span>Max drawdown</span><b class="dn num">${st.dd}%</b></div></div>
+    <p class="note">${ic('alert')}<span>Demo figures for illustration, covering the last 90 days. Past performance does not predict future results, and you can lose money.</span></p>`;
+  if(t==='About')body=`<ul class="bul"><li><b>Strategy type:</b> ${r.type}.</li><li><b>Best for:</b> ${r.id==='starter'?'people new to automated trading':r.id==='pro'?'medium to long-term use':r.id==='vip'?'experienced users who accept larger swings':'long-term users comfortable with high risk'}.</li><li><b>Risk level:</b> ${r.risk}. Higher risk can mean larger losses as well as larger gains.</li><li><b>Subscription:</b> ${r.days} days, prepaid from your USD wallet.</li><li><b>Record keeping:</b> every payment and robot action is logged in your history.</li></ul>`;
+  if(t==='Reviews')body=`<p class="sm" style="margin-bottom:8px">Sample reviews for the prototype.</p><div class="rev"><b>Amina K.</b> <span class="sm">${ic('star','star')} 5.0</span><p class="sm" style="margin-top:4px">Clear risk information before I subscribed. Support replied within a day.</p></div><div class="rev"><b>Eric H.</b> <span class="sm">${ic('star','star')} 4.0</span><p class="sm" style="margin-top:4px">Steady on most days, but the drawdown is real. Start small.</p></div><div class="rev"><b>Grace M.</b> <span class="sm">${ic('star','star')} 4.5</span><p class="sm" style="margin-top:4px">The expiry reminders are useful. Renewing took two taps.</p></div>`;
+  if(t==='FAQ')body=`<details class="acc" open><summary>Does this robot guarantee profit?</summary><p>No. Robots follow rules and can lose money. Results shown are demo figures.</p></details><details class="acc"><summary>What happens when my subscription ends?</summary><p>The robot stops on the expiry date. You can renew any time from My robots.</p></details><details class="acc"><summary>Can I cancel or get a refund?</summary><p>Cancellation and refund terms are set by GuanemX and shown at checkout.</p></details><details class="acc"><summary>Where does the money come from?</summary><p>Subscriptions are paid from your USD wallet. Every payment appears in Transactions.</p></details>`;
+  return `<button class="back" data-a="go" data-v="robots">${ic('left')}Back to marketplace</button>
+  <section class="panel"><div class="rd">${bot(r,150)}<div><div class="ph-r"><h1>${r.name}</h1>${tierPill(r)}</div>
+  <p class="sm" style="margin-top:6px">${ic('star','star')} ${r.rating} (${r.reviews} reviews)</p><p style="margin-top:8px;color:var(--muted);max-width:56ch">${r.desc}</p>
+  <div class="facts"><div><span>Duration</span><b>${r.days} days</b></div><div><span>Price</span><b class="num">${fmt$(r.price)}</b></div><div><span>Risk level</span><b>${r.risk}</b></div><div><span>Type</span><b>${r.type}</b></div></div>
+  <button class="btn brand" data-a="subscribe" data-id="${r.id}">${owns?'Renew subscription':'Subscribe now'}</button></div></div></section>
+  <section class="panel" style="margin-top:16px"><div class="seg tabs scroll" role="group" aria-label="Robot sections">${tabs}</div>${body}</section>`;
+}
+
+function vMine(){
+  const all=S.mine,act=all.filter(isActive),exp=all.filter(m=>!isActive(m));
+  const list=S.mtab==='active'?act:S.mtab==='expired'?exp:all;
+  const tabs=[['active','Active ('+act.length+')'],['expired','Expired ('+exp.length+')'],['all','All ('+all.length+')']].map(([k,l])=>`<button data-a="mtab" data-t="${k}" aria-pressed="${S.mtab===k}">${l}</button>`).join('');
+  const rows=list.length?list.map(m=>{const r=R(m.rid),a=isActive(m);
+    return `<div class="lrow wrapm">${bot(r,44)}<div class="grow"><div class="nm">${r.name} <span class="pill ${a?'up':'dn'}">${a?'Active':'Expired'}</span></div><div class="sm">${a?'Expires in '+daysLeft(m)+' days':'Ended '+fd(m.expires)}</div></div><div class="col xtra"><b class="num">${fd(m.start)}</b><small>Started</small></div><div class="col xtra"><b class="num">${fd(m.expires)}</b><small>Expires</small></div><div class="col"><b class="num up">${fmt$(m.profit,true)}</b><small>+${m.pct.toFixed(2)}%</small></div><button class="btn sm" data-a="open-robot" data-id="${r.id}">Details</button></div>`}).join(''):'<p class="empty">Nothing here yet.</p>';
+  return `<header class="ph"><div><h1>My robots</h1><p class="sub">Your subscriptions, with start and expiry dates.</p></div><button class="btn brand" data-a="go" data-v="robots">${ic('plus')}Browse robots</button></header>
+  <section class="panel"><div class="seg tabs scroll" role="group" aria-label="Filter">${tabs}</div><div class="list">${rows}</div><p class="sm" style="margin-top:12px">Showing ${list.length} of ${all.length} results. Profit figures are simulated.</p></section>`;
+}
+
+function txRows(list){
+  if(!list.length)return '<p class="empty">No transactions in this view.</p>';
+  return list.map(t=>`<div class="lrow"><span class="ti ${t.amt>0?'in':'out'}">${ic(t.type==='Deposit'?'down':t.type==='Withdrawal'?'up':'robot')}</span><div class="grow"><div class="nm">${t.type==='Subscription'?'Robot subscription':t.type} <span class="pill ${stc(t.status)}">${t.status}</span></div><div class="sm">${esc(t.method)}</div></div><div class="col"><b class="num ${t.amt>0?'up':'dn'}">${fmt$(t.amt,true)}</b><small>${t.date}</small></div></div>`).join('');
+}
+function vWallet(){
+  const flt=S.wtab==='deposits'?S.tx.filter(t=>t.type==='Deposit'):S.wtab==='withdrawals'?S.tx.filter(t=>t.type==='Withdrawal'):S.tx;
+  const tabs=[['all','Transactions'],['deposits','Deposits'],['withdrawals','Withdrawals']].map(([k,l])=>`<button data-a="wtab" data-t="${k}" aria-pressed="${S.wtab===k}">${l}</button>`).join('');
+  return `<header class="ph"><div><h1>Wallet</h1><p class="sub">Balances are shown in USD value. Payments here are simulated.</p></div><div class="acts"><button class="btn brand" data-a="deposit">${ic('down')}Deposit</button><button class="btn" data-a="withdraw">${ic('up')}Withdraw</button></div></header>
+  <section class="panel wal"><div><span class="coin" style="background:#3B5BDB">$</span><div><span class="lbl">USD wallet</span><b class="num" style="display:block;font-size:20px">${fmt$(S.wallets.usd)}</b></div></div><div><span class="coin" style="background:#F08C00">\u20BF</span><div><span class="lbl">BTC wallet</span><b class="num" style="display:block;font-size:20px">${fmt$(S.wallets.btc)}</b></div></div><div><span class="coin" style="background:#12A57A">T</span><div><span class="lbl">USDT wallet</span><b class="num" style="display:block;font-size:20px">${fmt$(S.wallets.usdt)}</b></div></div></section>
+  <section class="panel"><div class="seg tabs scroll" role="group" aria-label="Filter">${tabs}</div><div class="list">${txRows(flt)}</div></section>`;
+}
+function vTx(){
+  const m={all:S.tx,deposits:S.tx.filter(t=>t.type==='Deposit'),withdrawals:S.tx.filter(t=>t.type==='Withdrawal'),subs:S.tx.filter(t=>t.type==='Subscription')};
+  const list=m[S.xtab];
+  const tabs=[['all','All'],['deposits','Deposits'],['withdrawals','Withdrawals'],['subs','Subscriptions']].map(([k,l])=>`<button data-a="xtab" data-t="${k}" aria-pressed="${S.xtab===k}">${l}</button>`).join('');
+  return `<header class="ph"><div><h1>Transactions</h1><p class="sub">Every deposit, withdrawal and robot subscription, with its status.</p></div></header>
+  <section class="panel"><div class="seg tabs scroll" role="group" aria-label="Filter">${tabs}</div><div class="list">${txRows(list)}</div><p class="sm" style="margin-top:12px">Showing ${list.length} of ${S.tx.length} results.</p></section>`;
+}
+
+const msgHTML=m=>{const me=m.u==='You';return `<div class="msg ${me?'me':''}"><span class="av" style="background:${hue(m.u)}">${initials(m.u)}</span><div class="bub"><b>${esc(m.u)}</b><time>${m.t}</time><p>${esc(m.m)}</p></div></div>`};
+function vChat(){
+  const r=ROOMS.find(x=>x.id===S.room);
+  return `<header class="ph"><div><h1>Community</h1><p class="sub">Talk with other members. Chat is not financial advice.</p></div><span class="pill up">325 online</span></header>
+  <div class="chatg"><section class="panel chat"><div class="chat-h"><b>${r.name}</b><span class="sm">${r.n} members</span></div><div class="msgs" id="msgs">${S.msgs[S.room].map(msgHTML).join('')}</div>
+  <form class="compose" data-form="chat"><input id="chat-in" placeholder="Write a message" autocomplete="off" aria-label="Message"><button class="btn brand" type="submit" aria-label="Send message">${ic('send')}</button></form></section>
+  <aside class="rail"><div class="panel"><h3>Rooms</h3>${ROOMS.map(x=>`<button class="room" data-a="room" data-r="${x.id}" ${x.id===S.room?'aria-current="true"':''}><span>${x.name}</span><span class="sm">${x.n}</span></button>`).join('')}</div>
+  <div class="panel"><h3>Top members</h3>${MEMBERS.map(n=>`<div class="mem"><span class="av" style="background:${hue(n)}">${initials(n)}</span>${n}<i class="dot"></i></div>`).join('')}</div></aside></div>`;
+}
+
+function vProfile(){
+  return `<header class="ph"><div><h1>Profile</h1><p class="sub">Your details and account security.</p></div></header>
+  <div class="pf"><section class="panel" style="text-align:center"><span class="avatar">${initials()}</span><button class="link" data-a="avatar">Change avatar</button></section>
+  <div style="display:grid;gap:16px;min-width:0"><section class="panel"><dl class="dl"><div><dt>Full name</dt><dd>${esc(S.user.name)}</dd></div><div><dt>Email</dt><dd>${esc(S.user.email)}</dd></div><div><dt>Phone</dt><dd>${esc(S.user.phone)}</dd></div><div><dt>Country</dt><dd>${S.user.country}</dd></div><div><dt>Member since</dt><dd>${S.user.since}</dd></div><div><dt>Account type</dt><dd>${S.user.plan}</dd></div></dl></section>
+  <section class="panel"><h3>Security</h3>
+  <details class="acc"><summary>Change password</summary><form data-form="pw" style="margin-top:12px" novalidate>${field('pw0','Current password','password','','current-password')}${field('pw1','New password','password','At least 8 characters','new-password')}${field('pw2','Confirm new password','password','','new-password')}<div class="err" id="pw-err" role="alert"></div><button class="btn brand" type="submit">Save password</button></form></details>
+  <div class="setrow"><div><b>Two-factor authentication</b><div class="sm">Ask for a code when you log in.</div></div><label class="sw"><input type="checkbox" data-i="twofa" ${S.user.twofa?'checked':''} aria-label="Two-factor authentication"><span></span></label></div></section></div></div>`;
+}
+function vSettings(){
+  const th=[['system','System'],['light','Light'],['dark','Dark']].map(([k,l])=>`<button data-a="theme-set" data-m="${k}" aria-pressed="${S.theme===k}">${l}</button>`).join('');
+  const sw=(k,t,d)=>`<div class="setrow"><div><b>${t}</b><div class="sm">${d}</div></div><label class="sw"><input type="checkbox" data-i="notif" data-k="${k}" ${S.notif[k]?'checked':''} aria-label="${t}"><span></span></label></div>`;
+  return `<header class="ph"><div><h1>Settings</h1><p class="sub">Appearance and notification preferences.</p></div></header>
+  <section class="panel" style="margin-bottom:16px"><h3>Appearance</h3><div class="seg" role="group" aria-label="Theme">${th}</div></section>
+  <section class="panel"><h3>Notifications</h3>${sw('expiry','Subscription expiry','Remind me before a robot subscription ends.')}${sw('payments','Payments','Tell me when a deposit or withdrawal changes status.')}${sw('mentions','Community mentions','Tell me when someone mentions me in chat.')}</section>`;
+}
+
+/* admin */
+function vAOver(){
+  CH.ausers=cv=>drawLine(cv,{pts:[1800,3100,4800,6900,8700,10600,12543],labels:['Mar','Apr','May','Jun','Jul','Aug','Sep'],fy:(v,t)=>t?Math.round(v).toLocaleString('en-US'):(v>=1000?Math.round(v/1000)+'K':Math.round(v)),color:colors().info,pl:40});
+  const vals=[14,15,26,38,29,41,44],mo=['Mar','Apr','May','Jun','Jul','Aug','Sep'];
+  const parts=[{n:'Starter',c:TIER.starter},{n:'Pro',c:TIER.pro},{n:'VIP',c:TIER.vip},{n:'Ultimate',c:TIER.ultimate}].map((p,i)=>({...p,sold:S.robots[i].sold}));
+  const tot=parts.reduce((s,p)=>s+p.sold,0);parts.forEach(p=>p.pct=p.sold/tot*100);
+  const R0=44,C0=2*Math.PI*R0;let off=0;
+  const segs=parts.map(p=>{const len=C0*p.pct/100;const s=`<circle cx="60" cy="60" r="${R0}" fill="none" stroke="${p.c}" stroke-width="16" stroke-dasharray="${Math.max(0,len-2)} ${C0-Math.max(0,len-2)}" stroke-dashoffset="${-off}"/>`;off+=len;return s}).join('');
+  const pend=S.queue.filter(q=>q.status==='Pending');
+  return `<header class="ph"><div><h1>Admin overview</h1><p class="sub">Users, robots, payments and activity at a glance. Demo figures.</p></div></header>
+  <section class="panel strip"><div class="cell"><span class="lbl">Total users</span><b class="big num">12,543</b></div><div class="cell"><span class="lbl">Robots sold</span><b class="mid num">${tot.toLocaleString('en-US')}</b></div><div class="cell"><span class="lbl">Total revenue</span><b class="mid num">$256,780</b></div><div class="cell"><span class="lbl">Total withdrawals</span><b class="mid num">$189,430</b></div></section>
+  <div class="g2"><section class="panel"><h3>Users overview</h3><div class="cv"><canvas data-c="ausers" aria-label="Users over time"></canvas></div></section>
+  <section class="panel"><h3>Recent signups</h3><div class="list">${S.users.slice(1,5).map(u=>`<div class="lrow"><span class="avatar" style="background:${hue(u.n)};color:#fff">${initials(u.n)}</span><div class="grow"><div class="nm">${u.n}</div><div class="sm">${u.c}</div></div><span class="sm">${u.j}</span></div>`).join('')}</div></section></div>
+  <div class="g3"><section class="panel"><h3>Revenue overview</h3><div class="bars">${vals.map((v,i)=>`<div class="bar"><em>$${v}K</em><i style="height:${v/50*100}%"></i><span>${mo[i]}</span></div>`).join('')}</div></section>
+  <section class="panel"><h3>Robot sales</h3><div class="donutw"><svg class="donut" viewBox="0 0 120 120" role="img" aria-label="Robot sales by plan"><g transform="rotate(-90 60 60)">${segs}</g><text x="60" y="61" text-anchor="middle" class="d1">${tot.toLocaleString('en-US')}</text><text x="60" y="73" text-anchor="middle" class="d2">robots sold</text></svg><div class="leg">${parts.map(p=>`<span><i style="background:${p.c}"></i>${p.n} ${Math.round(p.pct)}% (${p.sold.toLocaleString('en-US')})</span>`).join('')}</div></div></section>
+  <section class="panel"><h3>Withdrawal queue</h3>${pend.length?`<p><b class="num" style="font-size:28px;font-family:'Bricolage Grotesque',system-ui,sans-serif">${pend.length}</b> waiting for review, ${fmt$(pend.reduce((s,q)=>s+q.amt,0))} in total.</p><button class="btn brand" style="margin-top:14px" data-a="go" data-v="a-withdrawals">Review withdrawals</button>`:'<p class="empty">Nothing waiting. All withdrawals are reviewed.</p>'}</section></div>`;
+}
+function uRows(){
+  const q=S.uq.trim().toLowerCase(),l=S.users.filter(u=>!q||u.n.toLowerCase().includes(q)||u.e.toLowerCase().includes(q));
+  if(!l.length)return '<p class="empty">No users match this search.</p>';
+  return l.map(u=>`<div class="lrow wrapm"><span class="avatar" style="background:${hue(u.n)};color:#fff">${initials(u.n)}</span><div class="grow"><div class="nm">${u.n} <span class="pill ${stc(u.st)}">${u.st}</span></div><div class="sm">${u.e}</div></div><div class="col xtra"><b>${u.c}</b><small>Country</small></div><div class="col xtra"><b class="num">${u.j}</b><small>Joined</small></div><div class="col"><b class="num">${u.r}</b><small>Active robots</small></div><button class="btn sm ${u.st==='Active'?'danger':''}" data-a="suspend" data-e="${esc(u.e)}">${u.st==='Active'?'Suspend':'Reinstate'}</button></div>`).join('');
+}
+function vAUsers(){
+  return `<header class="ph"><div><h1>Users</h1><p class="sub">Search members and suspend or reinstate accounts.</p></div></header>
+  <section class="panel"><div class="filters"><div class="search">${ic('search')}<input type="search" placeholder="Search name or email" value="${esc(S.uq)}" data-i="usearch" data-ev="input" aria-label="Search users"></div></div><div class="list" id="urows">${uRows()}</div></section>`;
+}
+function vARobots(){
+  return `<header class="ph"><div><h1>Robots</h1><p class="sub">Edit prices and choose which plans appear in the marketplace. Changes show up instantly for members.</p></div></header>
+  <section class="panel"><div class="list">${S.robots.map(r=>`<div class="lrow wrapm">${bot(r,48)}<div class="grow"><div class="nm">${r.name} ${tierPill(r)}</div><div class="sm">${r.days} days, ${r.sold.toLocaleString('en-US')} sold</div></div><div class="col"><label class="sm" for="pr-${r.id}">Price (USD)</label><input class="mini num" id="pr-${r.id}" type="number" min="1" step="0.01" value="${r.price}" data-i="price" data-id="${r.id}"></div><div class="col"><span class="sm" style="display:block">Listed</span><label class="sw"><input type="checkbox" data-i="listed" data-id="${r.id}" ${r.listed?'checked':''} aria-label="List ${r.name} in the marketplace"><span></span></label></div></div>`).join('')}</div>
+  <p class="note">${ic('info')}<span>Subscriptions, deposits, support tickets and chat moderation join the admin panel in the full V1 build.</span></p></section>`;
+}
+function vAWd(){
+  const rows=S.queue.length?S.queue.map(q=>`<div class="lrow wrapm"><div class="grow"><div class="nm">${esc(q.user)} <span class="pill ${stc(q.status)}">${q.status}</span></div><div class="sm">${q.method}, requested ${q.date}</div></div><div class="col"><b class="num">${fmt$(q.amt)}</b></div>${q.status==='Pending'?`<div class="acts"><button class="btn sm brand" data-a="approve" data-id="${q.id}">Approve</button><button class="btn sm danger" data-a="reject" data-id="${q.id}">Reject</button></div>`:''}</div>`).join(''):'<p class="empty">No withdrawal requests yet.</p>';
+  return `<header class="ph"><div><h1>Withdrawals</h1><p class="sub">Member withdrawals wait here for review before funds are released. Try requesting one from the wallet, then approve it here.</p></div></header><section class="panel"><div class="list">${rows}</div></section>`;
+}
+
+const VIEWS={dashboard:vDash,chart:vChart,robots:vRobots,robot:vRobot,mine:vMine,wallet:vWallet,tx:vTx,chat:vChat,profile:vProfile,settings:vSettings,'a-overview':vAOver,'a-users':vAUsers,'a-robots':vARobots,'a-withdrawals':vAWd};
+
+/* ---------- render ---------- */
+function renderApp(keepScroll){
+  const old=$('#content'),st=old?old.scrollTop:0,app=$('#app');
+  if(S.view==='login'){app.innerHTML=vLogin()}
+  else{app.innerHTML=`<div class="shell">${vSide()}<div class="main">${vTop()}<main class="content" id="content" tabindex="-1">${VIEWS[S.view]()}</main></div>${vTabs()}</div>`;
+    const c=$('#content');if(keepScroll)c.scrollTop=st}
+  app.querySelectorAll('canvas[data-c]').forEach(cv=>{cv._h=null;hookHover(cv);drawOne(cv)});
+  updateLive();
+  const m=$('#msgs');if(m)m.scrollTop=m.scrollHeight;
+}
+function go(v,id){
+  if(v==='robot'&&id){S.robotId=id;S.robotTab='Performance'}
+  S.view=v;closeModal();renderApp();
+}
+function toast(msg){
+  const t=$('#toast'),d=document.createElement('div');d.textContent=msg;t.appendChild(d);
+  setTimeout(()=>d.remove(),3200);
+}
+function openModal(html){
+  const m=$('#modal');m.innerHTML=`<div class="scrim" data-a="close"></div><div class="dlg" role="dialog" aria-modal="true"><button class="x" data-a="close" aria-label="Close">${ic('plus').replace('<svg class="i "','<svg class="i " style="transform:rotate(45deg)"')}</button>${html}</div>`;
+  m.hidden=false;const f=m.querySelector('input:not([type=checkbox]):not([type=radio]),button.btn');if(f)setTimeout(()=>f.focus(),30);
+}
+function closeModal(){const m=$('#modal');m.hidden=true;m.innerHTML=''}
+function effTheme(){return S.theme==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):S.theme}
+function setTheme(m){
+  S.theme=m;if(m==='system')document.documentElement.removeAttribute('data-theme');else document.documentElement.setAttribute('data-theme',m);
+  $('#theme-btn').innerHTML=ic(effTheme()==='dark'?'sun':'moon');redrawAll();
+}
+function setDev(d){
+  S.dev=d;$('#stage').classList.toggle('phone',d==='phone');
+  document.querySelectorAll('[data-a="dev"]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.d===d)));
+  setTimeout(redrawAll,30);
+}
+
+/* ---------- modals ---------- */
+function depositModal(){
+  openModal(`<h2>Deposit funds</h2><p class="sub">Demo only. No real payment is made.</p>
+  <form data-form="deposit" novalidate><div class="opts" role="radiogroup" aria-label="Payment method">${['USDT TRC20','Perfect Money','Bitcoin'].map((m,i)=>`<label class="opt"><input type="radio" name="m" value="${m}" ${i?'':'checked'}><span>${m}</span></label>`).join('')}</div>
+  <div class="field"><label for="dam">Amount (USD)</label><input id="dam" name="amt" type="number" min="10" step="0.01" value="100" inputmode="decimal"></div>
+  <div class="quick">${[50,100,250,500].map(v=>`<button type="button" class="btn sm" data-a="amt" data-v="${v}">$${v}</button>`).join('')}</div>
+  <div class="err" id="m-err" role="alert"></div><div class="acts"><button type="button" class="btn" data-a="close">Cancel</button><button class="btn brand" type="submit">Deposit</button></div></form>`);
+}
+function withdrawModal(){
+  openModal(`<h2>Withdraw funds</h2><p class="sub">Available: <b class="num">${fmt$(S.wallets.usd)}</b> in your USD wallet. An admin reviews each withdrawal before it is released.</p>
+  <form data-form="withdraw" novalidate><div class="opts" role="radiogroup" aria-label="Payout method">${['USDT TRC20','Perfect Money','Bitcoin'].map((m,i)=>`<label class="opt"><input type="radio" name="m" value="${m}" ${i?'':'checked'}><span>${m}</span></label>`).join('')}</div>
+  <div class="field"><label for="wad">Destination address or account</label><input id="wad" name="dest" type="text" placeholder="Paste your address" autocomplete="off"></div>
+  <div class="field"><label for="wam">Amount (USD)</label><input id="wam" name="amt" type="number" min="10" step="0.01" placeholder="0.00" inputmode="decimal"></div>
+  <div class="err" id="m-err" role="alert"></div><div class="acts"><button type="button" class="btn" data-a="close">Cancel</button><button class="btn brand" type="submit">Request withdrawal</button></div></form>`);
+}
+function subModal(id){
+  const r=R(id),ok=S.wallets.usd>=r.price,after=round(S.wallets.usd-r.price);
+  openModal(`<h2>Subscribe to ${r.name}</h2><p class="sub">${r.days}-day prepaid plan. Risk level: ${r.risk}.</p>
+  <div class="sumrow"><span>Price</span><b class="num">${fmt$(r.price)}</b></div><div class="sumrow"><span>USD wallet</span><b class="num">${fmt$(S.wallets.usd)}</b></div><div class="sumrow"><span>Balance after payment</span><b class="num ${ok?'':'dn'}">${ok?fmt$(after):'Not enough funds'}</b></div>
+  ${ok?`<label class="chk"><input type="checkbox" data-i="agree"><span>I understand robots can lose money and results are not guaranteed.</span></label><div class="acts"><button class="btn" data-a="close">Cancel</button><button class="btn brand" id="pay" data-a="confirm-sub" data-id="${r.id}" disabled>Pay ${fmt$(r.price)}</button></div>`:`<p class="note">${ic('alert')}<span>Add ${fmt$(round(r.price-S.wallets.usd))} or more to your wallet to continue.</span></p><div class="acts"><button class="btn" data-a="close">Cancel</button><button class="btn brand" data-a="deposit">Deposit funds</button></div>`}`);
+}
+
+/* ---------- actions ---------- */
+const A={
+  go:el=>go(el.dataset.v,el.dataset.id),
+  close:()=>closeModal(),
+  dev:el=>setDev(el.dataset.d),
+  theme:()=>setTheme(effTheme()==='dark'?'light':'dark'),
+  'theme-set':el=>{setTheme(el.dataset.m);renderApp(true)},
+  'auth-toggle':()=>{S.authMode=S.authMode==='login'?'register':'login';renderApp()},
+  'pw-eye':()=>{const i=$('#lpw');i.type=i.type==='password'?'text':'password'},
+  social:()=>toast('Google and Apple sign-in are part of the V1 build.'),
+  forgot:()=>openModal(`<h2>Reset your password</h2><p class="sub">Enter your email and we will send a reset link.</p><form data-form="forgot" novalidate>${field('fe','Email','email','you@example.com','email')}<div class="acts"><button type="button" class="btn" data-a="close">Cancel</button><button class="btn brand" type="submit">Send reset link</button></div></form>`),
+  logout:()=>{S.view='login';S.mode='user';closeModal();renderApp();toast('You are logged out.')},
+  'admin-mode':()=>{S.mode=S.mode==='admin'?'user':'admin';go(S.mode==='admin'?'a-overview':'dashboard')},
+  more:()=>{
+    const it=S.mode==='admin'?[]:[['tx','Transactions','list'],['mine','My robots','brief'],['chat','Chat','chat'],['profile','Profile','user'],['settings','Settings','sliders']];
+    openModal(`<h2 style="margin-bottom:8px">More</h2>${it.map(([v,l,i])=>`<button class="sheetrow" data-a="go" data-v="${v}">${ic(i)}${l}</button>`).join('')}<button class="sheetrow" data-a="admin-mode">${ic(S.mode==='admin'?'user':'shield')}${S.mode==='admin'?'Back to user view':'Admin view (demo)'}</button><button class="sheetrow" data-a="logout">${ic('logout')}Log out</button>`);
+  },
+  tf:el=>{market.tf=el.dataset.t;market.hov=null;renderApp(true)},
+  'watch-pair':el=>{market.pair=el.dataset.p;market.hov=null;renderApp(true)},
+  rfilter:el=>{S.rf=el.dataset.f;renderApp(true)},
+  'open-robot':el=>go('robot',el.dataset.id),
+  rtab:el=>{S.robotTab=el.dataset.t;renderApp(true)},
+  subscribe:el=>subModal(el.dataset.id),
+  'confirm-sub':el=>{
+    const r=R(el.dataset.id);if(S.wallets.usd<r.price)return;
+    S.wallets.usd=round(S.wallets.usd-r.price);S.spent=round(S.spent+r.price);
+    const ex=S.mine.find(m=>m.rid===r.id&&isActive(m));
+    if(ex)ex.expires=addDays(ex.expires,r.days);else S.mine.unshift({uid:uid(),rid:r.id,start:TODAY,expires:addDays(TODAY,r.days),profit:0,pct:0});
+    S.tx.unshift({type:'Subscription',method:r.name,amt:-r.price,status:'Completed',date:nowStr()});
+    S.mtab='active';toast('Subscribed to '+r.name+'.');go('mine');
+  },
+  mtab:el=>{S.mtab=el.dataset.t;renderApp(true)},
+  xtab:el=>{S.xtab=el.dataset.t;renderApp(true)},
+  wtab:el=>{S.wtab=el.dataset.t;renderApp(true)},
+  deposit:()=>depositModal(),
+  withdraw:()=>withdrawModal(),
+  amt:el=>{const i=$('#dam');if(i)i.value=el.dataset.v},
+  room:el=>{S.room=el.dataset.r;renderApp(true)},
+  avatar:()=>toast('Avatar upload is part of the V1 build.'),
+  suspend:el=>{const u=S.users.find(x=>x.e===el.dataset.e);u.st=u.st==='Active'?'Suspended':'Active';toast(u.n+' is now '+u.st.toLowerCase()+'.');renderApp(true)},
+  approve:el=>{
+    const q=S.queue.find(x=>x.id===el.dataset.id);q.status='Approved';
+    if(q.tx)q.tx.status='Completed';toast('Withdrawal approved.');renderApp(true);
+  },
+  reject:el=>{
+    const q=S.queue.find(x=>x.id===el.dataset.id);q.status='Rejected';
+    if(q.tx){q.tx.status='Rejected';S.wallets.usd=round(S.wallets.usd+q.amt)}
+    toast('Withdrawal rejected and refunded.');renderApp(true);
+  }
+};
+const I={
+  rsearch:el=>{S.q=el.value;$('#robot-list').innerHTML=robotRows()},
+  usearch:el=>{S.uq=el.value;$('#urows').innerHTML=uRows()},
+  pair:el=>{market.pair=el.value;market.hov=null;renderApp(true)},
+  dper:el=>{S.dper=el.value;renderApp(true)},
+  agree:el=>{$('#pay').disabled=!el.checked},
+  twofa:el=>{S.user.twofa=el.checked;toast(el.checked?'Two-factor authentication is on.':'Two-factor authentication is off. Your account is less protected.')},
+  notif:el=>{S.notif[el.dataset.k]=el.checked},
+  price:el=>{const v=parseFloat(el.value),r=R(el.dataset.id);if(!(v>0)){el.value=r.price;toast('Enter a price above $0.');return}r.price=round(v);toast(r.name+' is now '+fmt$(r.price)+' in the marketplace.')},
+  listed:el=>{const r=R(el.dataset.id);r.listed=el.checked;toast(r.name+(r.listed?' is listed in the marketplace.':' is hidden from the marketplace.'))}
+};
+const FM={
+  login:f=>{
+    const id=f.elements.lid.value.trim(),pw=f.elements.lpw.value,err=$('#auth-err'),reg=S.authMode==='register';
+    if(reg&&!f.elements.fname.value.trim()){err.textContent='Enter your full name.';return}
+    if(!id){err.textContent='Enter your email or phone number.';return}
+    if(pw.length<6){err.textContent='Password must be at least 6 characters.';return}
+    if(reg){const n=f.elements.fname.value.trim();S.user.name=n;S.user.first=n.split(/\s+/)[0];if(id.includes('@'))S.user.email=id;S.user.since=fd(TODAY)}
+    S.view='dashboard';renderApp();toast(reg?'Account created. Welcome to GuanemX.':'Welcome back, '+S.user.first+'.');
+  },
+  forgot:f=>{if(!f.elements.fe.value.includes('@')){toast('Enter a valid email address.');return}closeModal();toast('If that email has an account, a reset link is on its way.')},
+  deposit:f=>{
+    const amt=round(parseFloat(f.elements.amt.value)),m=f.elements.m.value,err=$('#m-err');
+    if(!(amt>=10)){err.textContent='The minimum deposit is $10.00.';return}
+    const t={type:'Deposit',method:m,amt,status:'Pending',date:nowStr()};S.tx.unshift(t);closeModal();
+    toast('Deposit submitted. Waiting for confirmation.');renderApp(true);
+    setTimeout(()=>{t.status='Completed';S.wallets.usd=round(S.wallets.usd+amt);toast('Deposit of '+fmt$(amt)+' confirmed.');if(S.view!=='login')renderApp(true)},2600);
+  },
+  withdraw:f=>{
+    const amt=round(parseFloat(f.elements.amt.value)),m=f.elements.m.value,dest=f.elements.dest.value.trim(),err=$('#m-err');
+    if(dest.length<6){err.textContent='Enter a valid destination address or account.';return}
+    if(!(amt>=10)){err.textContent='The minimum withdrawal is $10.00.';return}
+    if(amt>S.wallets.usd){err.textContent='That is more than your USD wallet balance.';return}
+    S.wallets.usd=round(S.wallets.usd-amt);
+    const t={type:'Withdrawal',method:m,amt:-amt,status:'Pending review',date:nowStr()};S.tx.unshift(t);
+    S.queue.unshift({id:uid(),user:S.user.name,amt,method:m,date:t.date,status:'Pending',tx:t});
+    closeModal();toast('Withdrawal sent for review.');renderApp(true);
+  },
+  chat:f=>{
+    const i=f.elements[0],v=i.value.trim();if(!v)return;
+    const n=new Date(),t=p2(n.getHours())+':'+p2(n.getMinutes()),room=S.room;
+    S.msgs[room].push({u:'You',t,m:v});renderApp(true);$('#chat-in').focus();
+    if(room==='support')setTimeout(()=>{const d=new Date();S.msgs.support.push({u:'GuanemX Support',t:p2(d.getHours())+':'+p2(d.getMinutes()),m:'Thanks for your message. An agent will reply here shortly.'});if(S.view==='chat'&&S.room==='support')renderApp(true)},1500);
+  },
+  pw:f=>{
+    const e=$('#pw-err'),a=f.elements.pw0.value,b=f.elements.pw1.value,c=f.elements.pw2.value;
+    if(!a){e.textContent='Enter your current password.';return}
+    if(b.length<8){e.textContent='Use at least 8 characters for the new password.';return}
+    if(b!==c){e.textContent='The new passwords do not match.';return}
+    e.textContent='';f.reset();toast('Password updated.');
+  }
+};
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(el&&A[el.dataset.a])A[el.dataset.a](el,e)});
+['input','change'].forEach(ev=>document.addEventListener(ev,e=>{
+  const el=e.target.closest('[data-i]');if(!el||!I[el.dataset.i])return;
+  if((el.dataset.ev||'change')!==e.type)return;I[el.dataset.i](el,e);
+}));
+document.addEventListener('submit',e=>{const f=e.target.closest('[data-form]');if(f&&FM[f.dataset.form]){e.preventDefault();FM[f.dataset.form](f)}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden)closeModal()});
+if('ResizeObserver' in window)new ResizeObserver(()=>redrawAll()).observe($('#stage'));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{$('#theme-btn').innerHTML=ic(effTheme()==='dark'?'sun':'moon');redrawAll()});
+setInterval(()=>{tick();document.querySelectorAll('#app canvas[data-c="hero"],#app canvas[data-c="main"]').forEach(drawOne);updateLive()},1000);
+
+/* ---------- boot ---------- */
+$('#v-brand').innerHTML=logo(28)+'<span>GuanemX</span>';
+const db=document.querySelectorAll('[data-a="dev"]');
+db[0].innerHTML=ic('monitor')+'Desktop';db[1].innerHTML=ic('phone')+'Phone';
+$('#theme-btn').innerHTML=ic(effTheme()==='dark'?'sun':'moon');
+renderApp();
+})();
+</script>
+</body>
+</html>

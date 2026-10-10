@@ -1,0 +1,60 @@
+import { randomInt } from "node:crypto";
+import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { z } from "zod";
+import { consumeRateLimit, getCurrentUser, sameOriginRequest } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { recordAudit } from "@/lib/finance";
+
+const rechargeSchema = z.object({ amount: z.number().int().min(3000).max(3_000_000) });
+
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Sign in to view recharge requests." }, { status: 401 });
+  const recharges = await prisma.rechargeRequest.findMany({
+    where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 50,
+    include: { assignedAgent: { select: { name: true, phone: true } }, transaction: { select: { reference: true } } },
+  });
+  return NextResponse.json({ recharges: recharges.map((item) => ({
+    id: item.id, amount: item.amount.toFixed(0), currency: item.currency, status: item.status,
+    createdAt: item.createdAt.toISOString(), agent: { name: item.assignedAgent.name, phone: item.assignedAgent.phone },
+    reference: item.transaction?.reference ?? null,
+  })) });
+}
+
+export async function POST(request: NextRequest) {
+  if (!sameOriginRequest(request)) return NextResponse.json({ error: "Request origin could not be verified." }, { status: 403 });
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Sign in before requesting a recharge." }, { status: 401 });
+  if (!await consumeRateLimit(request, "recharge-request", user.id, 5, 60 * 60 * 1000)) return NextResponse.json({ error: "Too many recharge requests. Try again later." }, { status: 429 });
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (!idempotencyKey || idempotencyKey.length > 100) return NextResponse.json({ error: "A valid request key is required." }, { status: 400 });
+  let body: unknown;
+  try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
+  const parsed = rechargeSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Enter an amount from RWF 3,000 to RWF 3,000,000." }, { status: 400 });
+
+  const existing = await prisma.rechargeRequest.findUnique({ where: { idempotencyKey }, include: { assignedAgent: { select: { name: true, phone: true } } } });
+  if (existing) return existing.userId === user.id ? NextResponse.json({ id: existing.id, status: existing.status, amount: existing.amount.toFixed(0), agent: existing.assignedAgent }) : NextResponse.json({ error: "Request key already used." }, { status: 409 });
+
+  try {
+    const agents = await prisma.user.findMany({ where: { role: "AGENT", status: "ACTIVE", phone: { not: null } }, select: { id: true } });
+    if (!agents.length) return NextResponse.json({ error: "Recharge is temporarily unavailable. No active payment agents are configured." }, { status: 503 });
+    const agentId = agents[randomInt(agents.length)].id;
+    const result = await prisma.$transaction(async (tx) => {
+      const recharge = await tx.rechargeRequest.create({ data: {
+        userId: user.id, assignedAgentId: agentId, amount: new Prisma.Decimal(parsed.data.amount), idempotencyKey,
+      }, include: { assignedAgent: { select: { name: true, phone: true } } } });
+      await recordAudit(tx, request, user.id, "recharge.requested", "RechargeRequest", recharge.id, { amountRwf: parsed.data.amount });
+      return recharge;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    return NextResponse.json({ id: result.id, amount: result.amount.toFixed(0), status: result.status, agent: result.assignedAgent }, { status: 201 });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const duplicate = await prisma.rechargeRequest.findUnique({ where: { idempotencyKey }, include: { assignedAgent: { select: { name: true, phone: true } } } });
+      if (duplicate?.userId === user.id) return NextResponse.json({ id: duplicate.id, status: duplicate.status, amount: duplicate.amount.toFixed(0), agent: duplicate.assignedAgent });
+    }
+    console.error(JSON.stringify({ event: "recharge_request_failed", message: error instanceof Error ? error.message : "unknown error" }));
+    return NextResponse.json({ error: "Recharge request could not be created. Please try again." }, { status: 500 });
+  }
+}

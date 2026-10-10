@@ -1,0 +1,418 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  AGENT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum RobotStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum RobotTier {
+  BEGINNER
+  PRO
+  ADVANCED
+  VIP
+}
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  SUBSCRIPTION
+  REFUND
+  ADJUSTMENT
+  FEE
+  REFERRAL_BONUS
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+enum LedgerEntryType {
+  DEPOSIT
+  WITHDRAWAL
+  SUBSCRIPTION
+  REFUND
+  ADJUSTMENT
+  FEE
+  REFERRAL_BONUS
+}
+
+enum RechargeStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum WalletBalanceType {
+  MAIN
+  GROWTH
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PerformanceKind {
+  SIMULATED
+  HISTORICAL
+  REAL
+}
+
+model User {
+  id              String             @id @default(cuid())
+  name            String
+  email           String             @unique
+  phone           String?            @unique
+  referralCode    String?            @unique
+  invitedById     String?
+  invitedBy       User?              @relation("UserReferrals", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitees        User[]             @relation("UserReferrals")
+  passwordHash    String
+  role            UserRole           @default(USER)
+  status          UserStatus         @default(PENDING_VERIFICATION)
+  emailVerifiedAt DateTime?
+  phoneVerifiedAt DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  wallet          Wallet?
+  subscriptions   Subscription[]
+  transactions    Transaction[]
+  auditLogs       AuditLog[]         @relation("AuditActor")
+  messages        CommunityMessage[]
+  sessions        UserSession[]
+  assignedRecharges RechargeRequest[] @relation("RechargeAssignee")
+  rechargeRequests  RechargeRequest[] @relation("RechargeOwner")
+  reviewedRecharges RechargeRequest[] @relation("RechargeReviewer")
+  assignedWithdrawals Withdrawal[]    @relation("WithdrawalAssignee")
+  reviewedWithdrawals Withdrawal[]   @relation("WithdrawalReviewer")
+  payoutDestinations PayoutDestination[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+  @@map("user_sessions")
+}
+
+model RateLimitBucket {
+  id              String    @id
+  hits            Int       @default(0)
+  windowStartedAt DateTime  @default(now())
+  blockedUntil    DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  @@map("rate_limit_buckets")
+}
+
+model Robot {
+  id                  String           @id @default(cuid())
+  name                String
+  slug                String           @unique
+  description         String           @db.Text
+  strategyDescription String           @db.Text
+  market              String
+  riskLevel           String
+  robotType           String
+  status              RobotStatus      @default(DRAFT)
+  tier                RobotTier        @default(BEGINNER)
+  performanceKind     PerformanceKind?
+  performanceSummary  String?          @db.Text
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  plans               RobotPlan[]
+  subscriptions       Subscription[]
+
+  @@map("robots")
+}
+
+model RobotPlan {
+  id            String         @id @default(cuid())
+  robotId       String
+  robot         Robot          @relation(fields: [robotId], references: [id], onDelete: Restrict)
+  name          String
+  description   String?        @db.Text
+  durationDays  Int
+  price         Decimal        @db.Decimal(18, 2)
+  currency      String         @db.VarChar(3)
+  status        PlanStatus     @default(ACTIVE)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+
+  @@index([robotId, status])
+  @@map("robot_plans")
+}
+
+model Wallet {
+  id               String         @id @default(cuid())
+  userId           String         @unique
+  user             User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  currency         String         @db.VarChar(3)
+  availableBalance Decimal        @default(0) @db.Decimal(18, 2)
+  pendingBalance   Decimal        @default(0) @db.Decimal(18, 2)
+  growthBalance    Decimal        @default(0) @db.Decimal(18, 2)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  ledgerEntries    WalletLedger[]
+
+  @@map("wallets")
+}
+
+model Transaction {
+  id             String            @id @default(cuid())
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  type           TransactionType
+  status         TransactionStatus @default(PENDING)
+  amount         Decimal           @db.Decimal(18, 2)
+  currency       String            @db.VarChar(3)
+  reference      String            @unique
+  description    String?
+  idempotencyKey String?           @unique
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  ledgerEntries  WalletLedger[]
+  payment        Payment?
+  withdrawal     Withdrawal?
+  rechargeRequest RechargeRequest?
+
+  @@index([userId, createdAt])
+  @@map("transactions")
+}
+
+model WalletLedger {
+  id            String          @id @default(cuid())
+  walletId      String
+  wallet        Wallet          @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  transactionId String
+  transaction   Transaction     @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  entryType     LedgerEntryType
+  balanceType   WalletBalanceType @default(MAIN)
+  amount        Decimal         @db.Decimal(18, 2)
+  currency      String          @db.VarChar(3)
+  balanceBefore Decimal         @db.Decimal(18, 2)
+  balanceAfter  Decimal         @db.Decimal(18, 2)
+  reference     String
+  createdAt     DateTime        @default(now())
+
+  @@index([walletId, createdAt])
+  @@map("wallet_ledger")
+}
+
+model Subscription {
+  id          String             @id @default(cuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  robotId     String
+  robot       Robot              @relation(fields: [robotId], references: [id], onDelete: Restrict)
+  robotPlanId String
+  robotPlan   RobotPlan          @relation(fields: [robotPlanId], references: [id], onDelete: Restrict)
+  status      SubscriptionStatus @default(PENDING)
+  price       Decimal            @db.Decimal(18, 2)
+  currency    String             @db.VarChar(3)
+  startAt     DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([status, expiresAt])
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  transactionId     String        @unique
+  transaction       Transaction   @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  provider          String
+  providerReference String?       @unique
+  status            PaymentStatus @default(PENDING)
+  rawStatus         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model Withdrawal {
+  id               String           @id @default(cuid())
+  transactionId    String           @unique
+  transaction      Transaction      @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  status           WithdrawalStatus @default(PENDING)
+  destinationToken String
+  payoutDestinationId String?
+  payoutDestination PayoutDestination? @relation(fields: [payoutDestinationId], references: [id], onDelete: Restrict)
+  assignedAgentId  String?
+  assignedAgent    User?             @relation("WithdrawalAssignee", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  sourceBalance    WalletBalanceType @default(MAIN)
+  fee              Decimal           @default(0) @db.Decimal(18, 2)
+  netPayout        Decimal           @default(0) @db.Decimal(18, 2)
+  reviewReason     String?
+  reviewedById     String?
+  reviewedBy       User?             @relation("WithdrawalReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  processedAt      DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@map("withdrawals")
+}
+
+model RechargeRequest {
+  id                 String         @id @default(cuid())
+  userId             String
+  user               User           @relation("RechargeOwner", fields: [userId], references: [id], onDelete: Restrict)
+  assignedAgentId    String
+  assignedAgent      User           @relation("RechargeAssignee", fields: [assignedAgentId], references: [id], onDelete: Restrict)
+  amount             Decimal        @db.Decimal(18, 2)
+  currency           String         @default("RWF") @db.VarChar(3)
+  status             RechargeStatus @default(PENDING)
+  transactionId      String?        @unique
+  transaction        Transaction?   @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  idempotencyKey     String?        @unique
+  reviewReason       String?
+  reviewedById       String?
+  reviewedBy         User?          @relation("RechargeReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt         DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([assignedAgentId, status, createdAt])
+  @@map("recharge_requests")
+}
+
+model PayoutDestination {
+  id                      String       @id @default(cuid())
+  userId                  String
+  user                    User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  category                String       @db.VarChar(20)
+  provider                String       @db.VarChar(80)
+  accountHolder           String       @db.VarChar(120)
+  accountNumberEncrypted String       @db.Text
+  accountNumberLast4      String       @db.VarChar(4)
+  isDefault               Boolean      @default(false)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  withdrawals             Withdrawal[]
+
+  @@index([userId, isDefault])
+  @@map("payout_destinations")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}
+
+model CommunityRoom {
+  id                 String             @id @default(cuid())
+  name               String             @unique
+  description        String?
+  isAnnouncementRoom Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  messages           CommunityMessage[]
+
+  @@map("community_rooms")
+}
+
+model CommunityMessage {
+  id         String        @id @default(cuid())
+  roomId     String
+  room       CommunityRoom @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  authorId   String
+  author     User          @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  body       String        @db.VarChar(4000)
+  replyToId  String?
+  reportedAt DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime      @default(now())
+
+  @@index([roomId, createdAt])
+  @@map("community_messages")
+}
+
+model VerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  purpose   String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, purpose])
+  @@map("verification_tokens")
+}
