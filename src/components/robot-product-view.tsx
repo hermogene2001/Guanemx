@@ -18,7 +18,7 @@ type RobotProduct = {
   performanceKind: "SIMULATED" | "HISTORICAL" | "REAL" | null;
   performanceSummary: string | null;
   subscriberCount: number;
-  plans: { id: string; name: string; description: string | null; durationDays: number; price: string; dailyReturnPercentage: string; currency: string }[];
+  plans: { id: string; name: string; description: string | null; durationDays: number; price: string; dailyReturnPercentage: string; projectedCycleEarnings: string; currency: string }[];
 };
 
 const tabs = ["Performance", "About", "Reviews", "FAQ"] as const;
@@ -116,14 +116,14 @@ export default function RobotProductView({ robot }: { robot: RobotProduct }) {
     <section className="robot-product-hero">
       <RobotArtwork imageUrl={robot.imageUrl} />
       <div className="robot-product-info"><div className="robot-product-tags"><span className={`tier-tag tier-${tier.toLowerCase()}`}>{tier}</span><span>{robot.robotType}</span><span>{robot.market}</span><span>{robot.riskLevel} risk</span></div><h1>{robot.name}</h1><p className="robot-product-summary">{robot.description}</p>
-        <div className="robot-product-facts"><div><small>Duration</small><strong>{selectedPlan.durationDays} days</strong></div><div><small>Price</small><strong>{selectedPlan.currency} {formatPrice(selectedPlan.price)}</strong></div><div><small>Configured daily return</small><strong>{selectedPlan.dailyReturnPercentage}%</strong></div><div><small>Risk level</small><strong>{robot.riskLevel}</strong></div><div><small>Strategy type</small><strong>{robot.robotType}</strong></div></div>
+        <div className="robot-product-facts"><div><small>Duration</small><strong>{selectedPlan.durationDays} days</strong></div><div><small>Price</small><strong>{selectedPlan.currency} {formatPrice(selectedPlan.price)}</strong></div><div><small>Configured daily return</small><strong>{selectedPlan.dailyReturnPercentage}%</strong></div><div><small>Projected earnings after full cycle</small><strong>{selectedPlan.currency} {formatPrice(selectedPlan.projectedCycleEarnings)}</strong></div><div><small>Risk level</small><strong>{robot.riskLevel}</strong></div><div><small>Strategy type</small><strong>{robot.robotType}</strong></div></div>
         <label className="product-plan-select">Choose a plan<select value={planId} onChange={(event) => setPlanId(event.target.value)}>{robot.plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} · {plan.currency} {formatPrice(plan.price)} · {plan.durationDays} days · {plan.dailyReturnPercentage}% daily</option>)}</select></label>
       </div>
       <div className="product-checkout-actions">
         <button className="product-subscribe-button" type="button" onClick={() => void subscribe()} disabled={!selectedPlan || checkoutBusy || Boolean(checkoutNotice)}>{checkoutBusy ? "Processing…" : checkoutNotice ? "Subscription active" : "Subscribe now"}{selectedPlan && <span> · {selectedPlan.currency} {formatPrice(selectedPlan.price)} from Main Balance</span>}</button>
         {checkoutError && <p className="auth-error" role="alert">{checkoutError} {checkoutError.includes("Main Balance") && <Link href="/account/recharge">Recharge</Link>}</p>}
         {checkoutNotice && <p className="finance-success" role="status">{checkoutNotice} <Link href="/account/my-robots">View My Robots</Link></p>}
-        <small className="product-checkout-disclaimer">One-time charge. The configured daily rate is not guaranteed; returns may vary and you may lose your investment.</small>
+        <small className="product-checkout-disclaimer">One-time charge. Projected cycle earnings assume every daily credit is made for the full duration; configured rates are not guaranteed and you may lose your investment.</small>
       </div>
     </section>
 

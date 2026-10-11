@@ -5,6 +5,7 @@ import { getActiveRobots } from "@/lib/robots";
 import { robotImageUrl } from "@/lib/robots";
 import AccountNavigation from "@/components/account-navigation";
 import RobotMarketplace from "@/components/robot-marketplace";
+import { calculateCycleEarning } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 type ActiveRobot = Awaited<ReturnType<typeof getActiveRobots>>[number];
@@ -42,7 +43,15 @@ export default async function RobotsPage() {
         robotType: robot.robotType,
         tier: robot.tier,
         imageUrl: robotImageUrl(robot),
-        plans: robot.plans.map((plan) => ({ id: plan.id, name: plan.name, durationDays: plan.durationDays, price: plan.price.toFixed(2), dailyReturnPercentage: plan.dailyReturnPercentage.toFixed(2), currency: plan.currency })),
+        plans: robot.plans.map((plan) => ({
+          id: plan.id,
+          name: plan.name,
+          durationDays: plan.durationDays,
+          price: plan.price.toFixed(2),
+          dailyReturnPercentage: plan.dailyReturnPercentage.toFixed(2),
+          projectedCycleEarnings: calculateCycleEarning(plan.price, plan.dailyReturnPercentage, plan.durationDays).toFixed(2),
+          currency: plan.currency,
+        })),
       }))} />}
       <p className="risk-note">Past performance does not guarantee future results. Trading involves risk and losses are possible.</p>
     </div></section>

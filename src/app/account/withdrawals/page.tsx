@@ -14,5 +14,5 @@ export default async function WithdrawalsPage() {
     prisma.wallet.findUnique({ where: { userId: user.id }, select: { availableBalance: true, growthBalance: true } }),
     getPlatformSettings(),
   ]);
-  return <AccountFrame user={user} activeHref="/account/withdrawals"><header className="account-header"><div><span className="label">WALLET</span><h1>Withdrawals</h1><p>Request one withdrawal per day from Main or Growth Balance.</p></div></header><WithdrawalPanel mainBalance={wallet?.availableBalance.toString() ?? "0"} growthBalance={wallet?.growthBalance.toString() ?? "0"} rate={settings.usdToRwfRate.toString()} feePercent={settings.withdrawalFeePercent.toString()} minimumAmount={settings.minimumWithdrawalAmount.toFixed(0)} /></AccountFrame>;
+  return <AccountFrame user={user} activeHref="/account/withdrawals"><header className="account-header"><div><span className="label">WALLET</span><h1>Withdrawals</h1><p>Request one withdrawal each Friday from Main or Growth Balance.</p></div></header><WithdrawalPanel mainBalance={wallet?.availableBalance.toString() ?? "0"} growthBalance={wallet?.growthBalance.toString() ?? "0"} rate={settings.usdToRwfRate.toString()} feePercent={settings.withdrawalFeePercent.toString()} minimumAmount={settings.minimumWithdrawalAmount.toFixed(0)} /></AccountFrame>;
 }

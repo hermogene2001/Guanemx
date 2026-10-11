@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/auth", async (importOriginal) => {
@@ -23,6 +23,12 @@ function withdrawInit(destinationId: string, key?: string) {
 describe("withdrawal wallet flow (integration)", () => {
   beforeEach(async () => {
     await cleanupDatabase();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-09T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("requires an authenticated user", async () => {
@@ -133,7 +139,7 @@ describe("withdrawal wallet flow (integration)", () => {
     expect(afterWallet.availableBalance.equals(new Prisma.Decimal("5000"))).toBe(true);
   });
 
-  it("enforces one withdrawal request per Kigali calendar day", async () => {
+  it("enforces one withdrawal request per Friday", async () => {
     const user = await createUser();
     await createAgent({ phone: "250788000023" });
     const destination = await createPayoutDestination(user.id);
@@ -142,9 +148,31 @@ describe("withdrawal wallet flow (integration)", () => {
 
     const first = await createWithdrawal(makeRequest("/api/withdrawals", withdrawInit(destination.id)));
     expect(first.status).toBe(201);
+    const created = await first.json();
+    await prisma.transaction.update({
+      where: { id: (await prisma.withdrawal.findUniqueOrThrow({ where: { id: created.id } })).transactionId },
+      data: { createdAt: new Date("2026-10-09T12:00:00.000Z") },
+    });
 
     const second = await createWithdrawal(makeRequest("/api/withdrawals", withdrawInit(destination.id, "w-day-2")));
     expect(second.status).toBe(409);
+    expect((await second.json()).error).toContain("one withdrawal request per Friday");
+  });
+
+  it("closes withdrawal requests outside Friday in Kigali time", async () => {
+    const user = await createUser();
+    await createAgent({ phone: "250788000025" });
+    const destination = await createPayoutDestination(user.id);
+    const wallet = await createWallet(user.id, 100000);
+    setCurrentUser(fakeFor(user));
+    vi.setSystemTime(new Date("2026-10-10T12:00:00.000Z"));
+
+    const response = await createWithdrawal(makeRequest("/api/withdrawals", withdrawInit(destination.id)));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toContain("Fridays only");
+    await expect(prisma.withdrawal.count()).resolves.toBe(0);
+    const afterWallet = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+    expect(afterWallet.availableBalance.equals(new Prisma.Decimal("100000"))).toBe(true);
   });
 
   it("approves a withdrawal and records the payout + fee transactions", async () => {

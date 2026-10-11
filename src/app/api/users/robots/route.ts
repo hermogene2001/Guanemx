@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateCycleEarning } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export async function GET() {
         daysRemaining: Math.max(0, item.robotPlan.durationDays - item.daysCompleted),
         durationDays: item.robotPlan.durationDays,
         totalEarned: earnedBySubscription.get(item.id) ?? "0.00",
+        projectedCycleEarnings: calculateCycleEarning(item.price, item.dailyReturnPercentage, item.robotPlan.durationDays).toFixed(2),
         lastCreditedAt: item.lastCreditedAt?.toISOString() ?? null,
         startedAt: item.startAt?.toISOString() ?? null,
       })),

@@ -67,6 +67,7 @@ describe("robot daily earnings (integration)", () => {
       daysCompleted: 2,
       daysRemaining: 1,
       totalEarned: "50.00",
+      projectedCycleEarnings: "75.00",
     }]);
 
     const replay = await runRobotEarnings(now);

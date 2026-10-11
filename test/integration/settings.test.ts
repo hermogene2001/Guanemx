@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/auth", async (importOriginal) => {
@@ -15,6 +15,12 @@ import { cleanupDatabase, createAgent, createPayoutDestination, createUser, crea
 describe("platform settings (integration)", () => {
   beforeEach(async () => {
     await cleanupDatabase();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-09T12:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("rejects anonymous and non-admin access", async () => {

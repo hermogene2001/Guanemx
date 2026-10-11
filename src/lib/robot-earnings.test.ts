@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateDailyEarning, getNextRobotEarningDueAt } from "@/lib/robot-earnings";
+import { calculateCycleEarning, calculateDailyEarning, getNextRobotEarningDueAt } from "@/lib/robot-earnings";
 
 describe("calculateDailyEarning", () => {
   it("calculates the configured percentage using decimal arithmetic", () => {
@@ -13,6 +13,16 @@ describe("calculateDailyEarning", () => {
 
   it("supports decimal investment values without binary floating-point drift", () => {
     expect(calculateDailyEarning("123.45", "2.5").toFixed(2)).toBe("3.09");
+  });
+});
+
+describe("calculateCycleEarning", () => {
+  it("totals the daily credited amount across the full plan duration", () => {
+    expect(calculateCycleEarning("45000", "2.5", 30).toFixed(2)).toBe("33750.00");
+  });
+
+  it("uses the same per-day rounding as wallet credits", () => {
+    expect(calculateCycleEarning("1.00", "0.50", 10).toFixed(2)).toBe("0.10");
   });
 });
 

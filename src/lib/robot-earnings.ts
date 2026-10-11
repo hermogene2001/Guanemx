@@ -16,6 +16,16 @@ export function calculateDailyEarning(investment: Prisma.Decimal.Value, dailyRet
     .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
 }
 
+export function calculateCycleEarning(
+  investment: Prisma.Decimal.Value,
+  dailyReturnPercentage: Prisma.Decimal.Value,
+  durationDays: number,
+) {
+  return calculateDailyEarning(investment, dailyReturnPercentage)
+    .mul(durationDays)
+    .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+}
+
 type CreditResult = "credited" | "not-due" | "skipped";
 
 async function creditOneDay(subscriptionId: string, now: Date): Promise<CreditResult> {

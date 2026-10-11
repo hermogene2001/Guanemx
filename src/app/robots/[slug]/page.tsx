@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getActiveRobot, robotImageUrl } from "@/lib/robots";
 import AccountFrame from "@/components/account-frame";
 import RobotProductView from "@/components/robot-product-view";
+import { calculateCycleEarning } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,15 @@ export default async function RobotDetailsPage({ params }: { params: Promise<{ s
     performanceKind: robot.performanceKind,
     performanceSummary: robot.performanceSummary,
     subscriberCount: robot._count.subscriptions,
-    plans: robot.plans.map((plan) => ({ id: plan.id, name: plan.name, description: plan.description, durationDays: plan.durationDays, price: plan.price.toFixed(2), dailyReturnPercentage: plan.dailyReturnPercentage.toFixed(2), currency: plan.currency })),
+    plans: robot.plans.map((plan) => ({
+      id: plan.id,
+      name: plan.name,
+      description: plan.description,
+      durationDays: plan.durationDays,
+      price: plan.price.toFixed(2),
+      dailyReturnPercentage: plan.dailyReturnPercentage.toFixed(2),
+      projectedCycleEarnings: calculateCycleEarning(plan.price, plan.dailyReturnPercentage, plan.durationDays).toFixed(2),
+      currency: plan.currency,
+    })),
   }} /></AccountFrame>;
 }

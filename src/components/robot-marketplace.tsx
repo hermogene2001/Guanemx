@@ -16,7 +16,7 @@ type MarketplaceRobot = {
   robotType: string;
   tier: Tier;
   imageUrl: string | null;
-  plans: { id: string; name: string; durationDays: number; price: string; dailyReturnPercentage: string; currency: string }[];
+  plans: { id: string; name: string; durationDays: number; price: string; dailyReturnPercentage: string; projectedCycleEarnings: string; currency: string }[];
 };
 
 const filters: { label: string; value: Tier | "ALL" }[] = [
@@ -71,6 +71,7 @@ export default function RobotMarketplace({ robots }: { robots: MarketplaceRobot[
         <div className="marketplace-robot-info"><div className="marketplace-robot-title"><h2>{robot.name}</h2><span className={`tier-tag tier-${robot.tier.toLowerCase()}`}>{robot.tier}</span></div><p>{robot.description}</p><small>{robot.robotType} · {robot.market} · {robot.riskLevel} risk</small></div>
         <div className="marketplace-plan-fact"><strong>{plan.dailyReturnPercentage}%</strong><small>Configured daily return</small></div>
         <div className="marketplace-plan-fact"><strong>{plan.durationDays} Days</strong><small>Duration</small></div>
+        <div className="marketplace-plan-fact"><strong>{plan.currency} {formatPrice(plan.projectedCycleEarnings)}</strong><small>Projected earnings for full cycle</small></div>
         <div className="marketplace-plan-fact marketplace-price"><strong>{plan.currency} {formatPrice(plan.price)}</strong><small>Price · {robot.plans.length} {robot.plans.length === 1 ? "plan" : "plans"}</small></div>
         <Link className="button marketplace-view-button" href={`/robots/${robot.slug}`}>View Details</Link>
       </article>;

@@ -57,9 +57,17 @@ export async function POST(request: NextRequest) {
       if (amount.lt(settings.minimumWithdrawalAmount)) throw new Error(`BELOW_MINIMUM:${settings.minimumWithdrawalAmount.toFixed(0)}`);
       const fee = amount.mul(settings.withdrawalFeePercent).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
       const netPayout = amount.sub(fee);
-      const start = kigaliDayStart();
-      const priorToday = await tx.withdrawal.findFirst({ where: { transaction: { userId: user.id, createdAt: { gte: start } } }, select: { id: true } });
-      if (priorToday) throw new Error("DAILY_LIMIT");
+      const now = new Date();
+      const start = kigaliDayStart(now);
+      if (new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "Africa/Kigali" }).format(now) !== "Fri") {
+        throw new Error("FRIDAY_ONLY");
+      }
+      const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+      const priorFriday = await tx.withdrawal.findFirst({
+        where: { transaction: { userId: user.id, createdAt: { gte: start, lt: end } } },
+        select: { id: true },
+      });
+      if (priorFriday) throw new Error("WEEKLY_LIMIT");
       const wallet = await tx.wallet.upsert({ where: { userId: user.id }, create: { userId: user.id, currency: CURRENCY }, update: {} });
       const before = parsed.data.sourceBalance === "MAIN" ? wallet.availableBalance : wallet.growthBalance;
       if (before.lt(amount)) throw new Error("INSUFFICIENT_BALANCE");
@@ -85,7 +93,8 @@ export async function POST(request: NextRequest) {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json({ id: result.withdrawal.id, repeated: result.repeated, status: result.withdrawal.status, amount: result.transaction.amount.toFixed(0), fee: result.withdrawal.fee.toFixed(2), netPayout: result.withdrawal.netPayout.toFixed(2) }, { status: result.repeated ? 200 : 201 });
   } catch (error) {
-    if (error instanceof Error && error.message === "DAILY_LIMIT") return NextResponse.json({ error: "You can submit one withdrawal request per Kigali calendar day." }, { status: 409 });
+    if (error instanceof Error && error.message === "FRIDAY_ONLY") return NextResponse.json({ error: "Withdrawals are available on Fridays only (Kigali time)." }, { status: 409 });
+    if (error instanceof Error && error.message === "WEEKLY_LIMIT") return NextResponse.json({ error: "You can submit only one withdrawal request per Friday (Kigali time)." }, { status: 409 });
     if (error instanceof Error && error.message.startsWith("BELOW_MINIMUM:")) return NextResponse.json({ error: `The minimum withdrawal is ${CURRENCY} ${error.message.slice("BELOW_MINIMUM:".length)}.` }, { status: 400 });
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") return NextResponse.json({ error: "The selected balance is lower than the requested gross amount." }, { status: 409 });
     if (error instanceof Error && error.message === "REQUEST_KEY_IN_USE") return NextResponse.json({ error: "Request key already used." }, { status: 409 });
