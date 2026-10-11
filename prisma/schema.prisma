@@ -451,15 +451,19 @@ model VerificationToken {
 /// Administrator-controlled platform settings. A single row (id "default")
 /// keeps money logic pointing at one source of truth.
 model PlatformSetting {
-  id                   String   @id @default("default")
+  id                      String   @id @default("default")
   /// How many Rwandan francs equal one US dollar (used for off-platform settlement).
-  usdToRwfRate         Decimal  @default(1400) @db.Decimal(18, 4)
+  usdToRwfRate            Decimal  @default(1400) @db.Decimal(18, 4)
   /// Percentage fee deducted from every withdrawal request.
-  withdrawalFeePercent Decimal  @default(10) @db.Decimal(5, 2)
+  withdrawalFeePercent    Decimal  @default(10) @db.Decimal(5, 2)
   /// Percentage of a confirmed recharge credited to the inviter, when set.
-  referralBonusPercent Decimal  @default(0) @db.Decimal(5, 2)
-  updatedAt            DateTime @updatedAt
-  updatedById          String?
+  referralBonusPercent    Decimal  @default(0) @db.Decimal(5, 2)
+  /// Minimum gross amount accepted for a new deposit request.
+  minimumDepositAmount    Decimal  @default(3000) @db.Decimal(18, 2)
+  /// Minimum gross amount accepted for a new withdrawal request.
+  minimumWithdrawalAmount Decimal  @default(1000) @db.Decimal(18, 2)
+  updatedAt               DateTime @updatedAt
+  updatedById             String?
 
   @@map("platform_settings")
 }

@@ -6,15 +6,31 @@ type Settings = {
   usdToRwfRate: string;
   withdrawalFeePercent: string;
   referralBonusPercent: string;
+  minimumDepositAmount: string;
+  minimumWithdrawalAmount: string;
   updatedAt: string | null;
   updatedById: string | null;
 };
+
+async function readResponse(response: Response) {
+  const body = await response.text();
+  if (!body) {
+    throw new Error(`Settings service returned an empty response (HTTP ${response.status}).`);
+  }
+  try {
+    return JSON.parse(body) as { settings?: Settings; error?: string };
+  } catch {
+    throw new Error(`Settings service returned an invalid response (HTTP ${response.status}).`);
+  }
+}
 
 export default function PlatformSettingsPanel() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [rate, setRate] = useState("");
   const [withdrawalFee, setWithdrawalFee] = useState("");
   const [referralBonus, setReferralBonus] = useState("");
+  const [minimumDeposit, setMinimumDeposit] = useState("");
+  const [minimumWithdrawal, setMinimumWithdrawal] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -24,13 +40,20 @@ export default function PlatformSettingsPanel() {
     setRate(next.usdToRwfRate);
     setWithdrawalFee(next.withdrawalFeePercent);
     setReferralBonus(next.referralBonusPercent);
+    setMinimumDeposit(next.minimumDepositAmount);
+    setMinimumWithdrawal(next.minimumWithdrawalAmount);
   }, []);
 
   const load = useCallback(async () => {
-    const response = await fetch("/api/admin/settings", { cache: "no-store" });
-    const data = await response.json() as { settings?: Settings; error?: string };
-    if (!response.ok || !data.settings) { setError(data.error ?? "Unable to load platform settings."); return; }
-    apply(data.settings);
+    setError("");
+    try {
+      const response = await fetch("/api/admin/settings", { cache: "no-store" });
+      const data = await readResponse(response);
+      if (!response.ok || !data.settings) { setError(data.error ?? `Unable to load platform settings (HTTP ${response.status}).`); return; }
+      apply(data.settings);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to load platform settings.");
+    }
   }, [apply]);
   useEffect(() => { void load(); }, [load]);
 
@@ -40,13 +63,19 @@ export default function PlatformSettingsPanel() {
       const response = await fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usdToRwfRate: Number(rate), withdrawalFeePercent: Number(withdrawalFee), referralBonusPercent: Number(referralBonus) }),
+        body: JSON.stringify({
+          usdToRwfRate: Number(rate),
+          withdrawalFeePercent: Number(withdrawalFee),
+          referralBonusPercent: Number(referralBonus),
+          minimumDepositAmount: Number(minimumDeposit),
+          minimumWithdrawalAmount: Number(minimumWithdrawal),
+        }),
       });
-      const data = await response.json() as { settings?: Settings; error?: string };
-      if (!response.ok || !data.settings) { setError(data.error ?? "Platform settings could not be saved."); return; }
+      const data = await readResponse(response);
+      if (!response.ok || !data.settings) { setError(data.error ?? `Platform settings could not be saved (HTTP ${response.status}).`); return; }
       apply(data.settings);
       setNotice("Platform settings saved. New requests use these values.");
-    } catch { setError("Unable to reach GuanemX. Try again."); }
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "Unable to reach GuanemX. Try again."); }
     finally { setBusy(false); }
   }
 
@@ -55,11 +84,13 @@ export default function PlatformSettingsPanel() {
   return <section className="finance-card">
     <span className="label">PLATFORM SETTINGS</span>
     <h2>Currency and fees</h2>
-    <p>GuanemX holds balances in US dollars. Set how many Rwandan francs equal one dollar for off-platform settlement, and the percentages applied to withdrawals and referral bonuses.</p>
+    <p>GuanemX holds balances in US dollars. Set the exchange rate for off-platform settlement, fees and referral bonuses, and the minimum amount accepted for new deposit and withdrawal requests.</p>
     <form className="finance-form" onSubmit={submit}>
       <label className="auth-field">USD → RWF rate (RWF per $1)<input type="number" min="0.0001" step="0.0001" value={rate} onChange={(event) => setRate(event.target.value)} required /><small>Shown to clients and agents as the Rwandan-franc equivalent of a dollar amount.</small></label>
       <label className="auth-field">Withdrawal fee (%)<input type="number" min="0" max="100" step="0.01" value={withdrawalFee} onChange={(event) => setWithdrawalFee(event.target.value)} required /><small>Deducted from every new withdrawal request.</small></label>
       <label className="auth-field">Referral bonus (%)<input type="number" min="0" max="100" step="0.01" value={referralBonus} onChange={(event) => setReferralBonus(event.target.value)} required /><small>Percentage of a confirmed recharge credited to the inviter. Set to 0 to disable.</small></label>
+      <label className="auth-field">Minimum deposit (USD)<input type="number" min="1" max="3000000" step="1" value={minimumDeposit} onChange={(event) => setMinimumDeposit(event.target.value)} required /><small>New deposit requests below this amount are rejected.</small></label>
+      <label className="auth-field">Minimum withdrawal (USD)<input type="number" min="1" max="3000000" step="1" value={minimumWithdrawal} onChange={(event) => setMinimumWithdrawal(event.target.value)} required /><small>New withdrawal requests below this amount are rejected.</small></label>
       {error && <p className="auth-error" role="alert">{error}</p>}{notice && <p className="finance-success" role="status">{notice}</p>}
       <button className="button" disabled={busy}>{busy ? "Saving…" : "Save settings"}</button>
     </form>

@@ -4,7 +4,7 @@ import { runRobotEarnings } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: NextRequest) {
+async function runRobotEarningsJob(request: NextRequest) {
   if (!isAuthorizedCronRequest(request)) return NextResponse.json({ error: "Unauthorized scheduled job request." }, { status: 401 });
   try {
     const result = await runRobotEarnings();
@@ -15,3 +15,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Robot earnings could not be processed." }, { status: 500 });
   }
 }
+
+// Vercel Cron invokes scheduled endpoints with GET; POST remains for manual/scheduler calls.
+export const GET = runRobotEarningsJob;
+export const POST = runRobotEarningsJob;

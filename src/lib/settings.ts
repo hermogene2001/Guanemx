@@ -20,6 +20,8 @@ export type PlatformSettings = {
   usdToRwfRate: Prisma.Decimal;
   withdrawalFeePercent: Prisma.Decimal;
   referralBonusPercent: Prisma.Decimal;
+  minimumDepositAmount: Prisma.Decimal;
+  minimumWithdrawalAmount: Prisma.Decimal;
   updatedAt: Date | null;
   updatedById: string | null;
 };
@@ -28,6 +30,8 @@ export type PlatformSettingsInput = {
   usdToRwfRate: Prisma.Decimal.Value;
   withdrawalFeePercent: Prisma.Decimal.Value;
   referralBonusPercent: Prisma.Decimal.Value;
+  minimumDepositAmount: Prisma.Decimal.Value;
+  minimumWithdrawalAmount: Prisma.Decimal.Value;
 };
 
 export function defaultPlatformSettings(): PlatformSettings {
@@ -35,6 +39,8 @@ export function defaultPlatformSettings(): PlatformSettings {
     usdToRwfRate: configuredUsdToRwfRate(),
     withdrawalFeePercent: configuredWithdrawalFeePercent(),
     referralBonusPercent: new Prisma.Decimal(configuredReferralBonusPercent()),
+    minimumDepositAmount: new Prisma.Decimal(3000),
+    minimumWithdrawalAmount: new Prisma.Decimal(1000),
     updatedAt: null,
     updatedById: null,
   };
@@ -48,6 +54,8 @@ export async function getPlatformSettings(client: Prisma.TransactionClient = pri
     usdToRwfRate: row.usdToRwfRate,
     withdrawalFeePercent: row.withdrawalFeePercent,
     referralBonusPercent: row.referralBonusPercent,
+    minimumDepositAmount: row.minimumDepositAmount,
+    minimumWithdrawalAmount: row.minimumWithdrawalAmount,
     updatedAt: row.updatedAt,
     updatedById: row.updatedById,
   };
@@ -63,6 +71,8 @@ export async function savePlatformSettings(
     usdToRwfRate: new Prisma.Decimal(input.usdToRwfRate),
     withdrawalFeePercent: new Prisma.Decimal(input.withdrawalFeePercent),
     referralBonusPercent: new Prisma.Decimal(input.referralBonusPercent),
+    minimumDepositAmount: new Prisma.Decimal(input.minimumDepositAmount),
+    minimumWithdrawalAmount: new Prisma.Decimal(input.minimumWithdrawalAmount),
     updatedById,
   };
   const row = await client.platformSetting.upsert({
@@ -74,6 +84,8 @@ export async function savePlatformSettings(
     usdToRwfRate: row.usdToRwfRate,
     withdrawalFeePercent: row.withdrawalFeePercent,
     referralBonusPercent: row.referralBonusPercent,
+    minimumDepositAmount: row.minimumDepositAmount,
+    minimumWithdrawalAmount: row.minimumWithdrawalAmount,
     updatedAt: row.updatedAt,
     updatedById: row.updatedById,
   };
@@ -85,6 +97,8 @@ export function serializePlatformSettings(settings: PlatformSettings) {
     usdToRwfRate: settings.usdToRwfRate.toFixed(4),
     withdrawalFeePercent: settings.withdrawalFeePercent.toFixed(2),
     referralBonusPercent: settings.referralBonusPercent.toFixed(2),
+    minimumDepositAmount: settings.minimumDepositAmount.toFixed(2),
+    minimumWithdrawalAmount: settings.minimumWithdrawalAmount.toFixed(2),
     updatedAt: settings.updatedAt?.toISOString() ?? null,
     updatedById: settings.updatedById,
   };

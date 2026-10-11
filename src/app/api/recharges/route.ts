@@ -6,8 +6,9 @@ import { consumeRateLimit, getCurrentUser, sameOriginRequest } from "@/lib/auth"
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/finance";
 import { CURRENCY } from "@/lib/money";
+import { getPlatformSettings } from "@/lib/settings";
 
-const rechargeSchema = z.object({ amount: z.number().int().min(3000).max(3_000_000) });
+const rechargeSchema = z.object({ amount: z.number().int().min(1).max(3_000_000) });
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -33,12 +34,16 @@ export async function POST(request: NextRequest) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const parsed = rechargeSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Enter an amount from $3,000 to $3,000,000." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Enter a whole-dollar amount no greater than $3,000,000." }, { status: 400 });
 
   const existing = await prisma.rechargeRequest.findUnique({ where: { idempotencyKey }, include: { assignedAgent: { select: { name: true, phone: true } } } });
   if (existing) return existing.userId === user.id ? NextResponse.json({ id: existing.id, status: existing.status, amount: existing.amount.toFixed(0), agent: existing.assignedAgent }) : NextResponse.json({ error: "Request key already used." }, { status: 409 });
 
   try {
+    const settings = await getPlatformSettings();
+    if (new Prisma.Decimal(parsed.data.amount).lt(settings.minimumDepositAmount)) {
+      return NextResponse.json({ error: `The minimum deposit is ${CURRENCY} ${settings.minimumDepositAmount.toFixed(0)}.` }, { status: 400 });
+    }
     const agents = await prisma.user.findMany({ where: { role: "AGENT", status: "ACTIVE", phone: { not: null } }, select: { id: true } });
     if (!agents.length) return NextResponse.json({ error: "Recharge is temporarily unavailable. No active payment agents are configured." }, { status: 503 });
     const agentId = agents[randomInt(agents.length)].id;

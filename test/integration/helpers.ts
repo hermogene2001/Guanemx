@@ -92,6 +92,7 @@ export async function cleanupDatabase() {
     prisma.userSession.deleteMany(),
     prisma.auditLog.deleteMany(),
     prisma.verificationToken.deleteMany(),
+    prisma.platformSetting.deleteMany(),
     prisma.robotPlan.deleteMany(),
     prisma.robot.deleteMany(),
     prisma.user.deleteMany(),

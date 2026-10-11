@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getPlatformSettings } from "@/lib/settings";
 
 const withdrawalSchema = z.object({
-  amount: z.number().int().min(1000).max(3_000_000),
+  amount: z.number().int().min(1).max(3_000_000),
   sourceBalance: z.enum(["MAIN", "GROWTH"]),
   payoutDestinationId: z.string().min(1).max(40),
 });
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const parsed = withdrawalSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Enter a withdrawal from $1,000 to $3,000,000 and choose a balance and payout destination." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Enter a whole-dollar withdrawal no greater than $3,000,000 and choose a balance and payout destination." }, { status: 400 });
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey || idempotencyKey.length > 100) return NextResponse.json({ error: "A valid request key is required." }, { status: 400 });
 
@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
         return { withdrawal: duplicate.withdrawal, transaction: duplicate, repeated: true };
       }
       const settings = await getPlatformSettings(tx);
+      if (amount.lt(settings.minimumWithdrawalAmount)) throw new Error(`BELOW_MINIMUM:${settings.minimumWithdrawalAmount.toFixed(0)}`);
       const fee = amount.mul(settings.withdrawalFeePercent).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
       const netPayout = amount.sub(fee);
       const start = kigaliDayStart();
@@ -85,6 +86,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: result.withdrawal.id, repeated: result.repeated, status: result.withdrawal.status, amount: result.transaction.amount.toFixed(0), fee: result.withdrawal.fee.toFixed(2), netPayout: result.withdrawal.netPayout.toFixed(2) }, { status: result.repeated ? 200 : 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "DAILY_LIMIT") return NextResponse.json({ error: "You can submit one withdrawal request per Kigali calendar day." }, { status: 409 });
+    if (error instanceof Error && error.message.startsWith("BELOW_MINIMUM:")) return NextResponse.json({ error: `The minimum withdrawal is ${CURRENCY} ${error.message.slice("BELOW_MINIMUM:".length)}.` }, { status: 400 });
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") return NextResponse.json({ error: "The selected balance is lower than the requested gross amount." }, { status: 409 });
     if (error instanceof Error && error.message === "REQUEST_KEY_IN_USE") return NextResponse.json({ error: "Request key already used." }, { status: 409 });
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return NextResponse.json({ error: "This withdrawal request has already been submitted." }, { status: 409 });

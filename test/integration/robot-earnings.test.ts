@@ -11,7 +11,7 @@ import { PATCH as updateRobot } from "@/app/api/admin/robots/[id]/route";
 import { prisma } from "@/lib/prisma";
 import { runRobotEarnings } from "@/lib/robot-earnings";
 import { CURRENCY } from "@/lib/money";
-import { cleanupDatabase, createUser, createWallet, fakeFor, setCurrentUser } from "./helpers";
+import { cleanupDatabase, createUser, createWallet, fakeFor, makeRequest, setCurrentUser } from "./helpers";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

@@ -57,7 +57,8 @@ Prisma models cover users and database-backed sessions, login rate-limit buckets
 - Robot daily earnings: each plan configures a daily return percentage, snapshotted onto subscriptions at checkout. Due daily credits are posted to Main Balance with a transaction and immutable ledger entry; the scheduler catches up missed due days while a subscription and robot are active. Each day is credited atomically and idempotently.
 - Subscription lifecycle: subscriptions start immediately after successful checkout and expire after their selected plan duration. `/api/cron/subscriptions` processes due robot earnings before expiring subscriptions and removes expired sessions/tokens.
 - Agent operations: review queues for assigned recharge and withdrawal requests; every decision is audited.
-- Administration: platform overview, recent audit activity, robot catalog management, agent access management, report/soft-delete/restore tools for community messages, a 200-event audit page, and a Platform settings page for the USD exchange rate and fee percentages.
+- Administration: platform overview, recent audit activity, robot catalog management, agent access management, report/soft-delete/restore tools for community messages, a 200-event audit page, and Platform settings for the USD exchange rate, fees, and minimum deposit/withdrawal amounts.
+- Deposit and withdrawal requests enforce the administrator-configured minimum amounts (defaults: $3,000 and $1,000). Setting changes apply to new requests only.
 - Currency: balances and transactions are stored and displayed in US dollars (`$`). Clients and agents also see the Rwandan-franc equivalent of an amount at the configured exchange rate, since recharges and payouts settle in local cash outside the app.
 
 ## Intended server route boundaries

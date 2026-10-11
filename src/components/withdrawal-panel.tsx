@@ -7,10 +7,11 @@ import { formatMoney, formatRwf, formatUsd, usdToRwf } from "@/lib/money";
 type Destination = { id: string; category: string; provider: string; accountHolder: string; accountNumberLast4: string; isDefault: boolean };
 type Withdrawal = { id: string; status: string; amount: string; currency: string; fee: string; netPayout: string; sourceBalance: string; createdAt: string; reference: string; destination: { provider: string; accountNumberLast4: string } | null };
 
-export default function WithdrawalPanel({ mainBalance, growthBalance, rate, feePercent }: { mainBalance: string; growthBalance: string; rate: string; feePercent: string }) {
+export default function WithdrawalPanel({ mainBalance, growthBalance, rate, feePercent, minimumAmount }: { mainBalance: string; growthBalance: string; rate: string; feePercent: string; minimumAmount: string }) {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
-  const [amount, setAmount] = useState(1000);
+  const minimum = Number(minimumAmount);
+  const [amount, setAmount] = useState(minimum);
   const [sourceBalance, setSourceBalance] = useState("MAIN");
   const [destinationId, setDestinationId] = useState("");
   const [error, setError] = useState("");
@@ -49,7 +50,7 @@ export default function WithdrawalPanel({ mainBalance, growthBalance, rate, feeP
   return <div className="finance-layout">
     <section className="finance-card"><span className="label">WITHDRAW FUNDS</span><h2>Request a withdrawal</h2><p>Choose the balance to withdraw from and a saved payout destination.</p>
       <form className="finance-form" onSubmit={submit}>
-        <label className="auth-field">Amount (USD)<input type="number" min={1000} max={3000000} step={1} value={amount} onChange={(event) => setAmount(Number(event.target.value))} required /></label>
+        <label className="auth-field">Amount (USD)<input type="number" min={minimum} max={3000000} step={1} value={amount} onChange={(event) => setAmount(Number(event.target.value))} required /><small>Minimum withdrawal: {formatUsd(minimum)}.</small></label>
         <label className="auth-field">Withdraw from<select value={sourceBalance} onChange={(event) => setSourceBalance(event.target.value)}><option value="MAIN">Main Balance · {formatUsd(mainBalance)}</option><option value="GROWTH">Growth Balance · {formatUsd(growthBalance)}</option></select></label>
         <label className="auth-field">Payout destination<select value={destinationId} onChange={(event) => setDestinationId(event.target.value)} required disabled={destinations.length === 0}><option value="">Choose saved destination</option>{destinations.map((item) => <option value={item.id} key={item.id}>{item.provider} · •••• {item.accountNumberLast4}</option>)}</select></label>
         <div className="withdrawal-estimate"><span>Gross deduction <strong>{formatUsd(Number.isFinite(amount) ? amount : 0)}</strong></span><span>{feePercent}% fee <strong>{formatUsd(estimated.fee)}</strong></span><span>Estimated payout <strong>{formatUsd(estimated.net)}</strong></span>{hasRate && <span>≈ <strong>{formatRwf(usdToRwf(estimated.net, rate))}</strong> at the current rate</span>}</div>
