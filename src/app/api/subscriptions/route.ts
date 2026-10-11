@@ -3,6 +3,7 @@ import { Prisma, UserStatus } from "@prisma/client";
 import { z } from "zod";
 import { getCurrentUser, sameOriginRequest } from "@/lib/auth";
 import { newReference, recordAudit } from "@/lib/finance";
+import { CURRENCY } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
 const checkoutSchema = z.object({ planId: z.string().min(1).max(64), idempotencyKey: z.string().uuid() });
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
         include: { robot: { select: { id: true, name: true } } },
       });
       if (!plan) return { kind: "unavailable" as const };
-      if (plan.currency !== "RWF") return { kind: "currency" as const };
+      if (plan.currency !== CURRENCY) return { kind: "currency" as const };
 
       const wallet = await tx.wallet.findUnique({ where: { userId: user.id } });
       if (!wallet || wallet.currency !== plan.currency) return { kind: "wallet" as const };
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
           currency: plan.currency,
           startAt: now,
           expiresAt,
+          dailyReturnPercentage: plan.dailyReturnPercentage,
         },
         include: { robot: { select: { name: true } }, robotPlan: { select: { name: true } } },
       });
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
     if (result.kind === "insufficient") return NextResponse.json({ error: "Your Main Balance does not cover this plan. Recharge your wallet and try again." }, { status: 409 });
     if (result.kind === "unavailable") return NextResponse.json({ error: "This plan is no longer available." }, { status: 404 });
     if (result.kind === "currency") return NextResponse.json({ error: "This plan uses a currency that checkout does not support." }, { status: 409 });
-    if (result.kind === "wallet") return NextResponse.json({ error: "Your RWF wallet is not available. Contact support." }, { status: 409 });
+    if (result.kind === "wallet") return NextResponse.json({ error: "Your USD wallet is not available. Contact support." }, { status: 409 });
     if (result.kind === "conflict") return NextResponse.json({ error: "This checkout key was already used." }, { status: 409 });
     return NextResponse.json({
       subscription: {

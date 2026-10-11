@@ -49,19 +49,34 @@ export default function AccountNavigation({ user, activeHref }: { user: AccountU
   return <aside className="account-sidebar">
     <BrandLogo />
     <ThemeSelector />
-    <p className="account-sidebar-label">YOUR ACCOUNT</p>
-    <nav className="account-nav" aria-label="Account services">
-      {accountServices.map((service) => <Link className={activeHref === service.href ? "account-nav-link selected" : "account-nav-link"} href={service.href} key={service.name}><span className="account-nav-icon"><NavIcon name={service.icon} /></span>{service.name}</Link>)}
+    <nav className="account-nav" aria-label={user.role === "ADMIN" ? "Administration and operations" : "Account services"}>
+      {user.role === "USER" && <>
+        <p className="account-sidebar-label">YOUR ACCOUNT</p>
+        {accountServices.map((service) => <Link className={activeHref === service.href ? "account-nav-link selected" : "account-nav-link"} href={service.href} key={service.name}><span className="account-nav-icon"><NavIcon name={service.icon} /></span>{service.name}</Link>)}
+      </>}
       {(user.role === "AGENT" || user.role === "ADMIN") && <>
         <p className="account-sidebar-label staff-nav-label">OPERATIONS</p>
         <Link className={activeHref === "/agent" ? "account-nav-link selected" : "account-nav-link"} href="/agent"><span className="account-nav-icon"><NavIcon name="operations" /></span>Operations home</Link>
         <Link className={activeHref === "/agent/requests" ? "account-nav-link selected" : "account-nav-link"} href="/agent/requests"><span className="account-nav-icon"><NavIcon name="review" /></span>Review requests</Link>
+        <Link className={activeHref === "/agent/history" ? "account-nav-link selected" : "account-nav-link"} href="/agent/history"><span className="account-nav-icon"><NavIcon name="receipt" /></span>Review history</Link>
+        {user.role === "AGENT" && <>
+          <p className="account-sidebar-label staff-nav-label">ACCOUNT SETTINGS</p>
+          <Link className={activeHref === "/account/profile" ? "account-nav-link selected" : "account-nav-link"} href="/account/profile"><span className="account-nav-icon"><NavIcon name="profile" /></span>Profile</Link>
+          <Link className={activeHref === "/account/security" ? "account-nav-link selected" : "account-nav-link"} href="/account/security"><span className="account-nav-icon"><NavIcon name="security" /></span>Security</Link>
+        </>}
       </>}
       {user.role === "ADMIN" && <>
         <p className="account-sidebar-label staff-nav-label">ADMINISTRATION</p>
         <Link className={activeHref === "/admin" ? "account-nav-link selected" : "account-nav-link"} href="/admin"><span className="account-nav-icon"><NavIcon name="dashboard" /></span>Admin overview</Link>
+        <Link className={activeHref === "/admin/users" ? "account-nav-link selected" : "account-nav-link"} href="/admin/users"><span className="account-nav-icon"><NavIcon name="profile" /></span>User management</Link>
         <Link className={activeHref === "/admin/robots" ? "account-nav-link selected" : "account-nav-link"} href="/admin/robots"><span className="account-nav-icon"><NavIcon name="robot" /></span>Robot catalog</Link>
         <Link className={activeHref === "/admin/agents" ? "account-nav-link selected" : "account-nav-link"} href="/admin/agents"><span className="account-nav-icon"><NavIcon name="settings" /></span>Agent management</Link>
+        <Link className={activeHref === "/admin/settings" ? "account-nav-link selected" : "account-nav-link"} href="/admin/settings"><span className="account-nav-icon"><NavIcon name="settings" /></span>Platform settings</Link>
+        <Link className={activeHref === "/admin/community" ? "account-nav-link selected" : "account-nav-link"} href="/admin/community"><span className="account-nav-icon"><NavIcon name="community" /></span>Community moderation</Link>
+        <Link className={activeHref === "/admin/audit" ? "account-nav-link selected" : "account-nav-link"} href="/admin/audit"><span className="account-nav-icon"><NavIcon name="receipt" /></span>Audit activity</Link>
+        <Link className={activeHref === "/admin/transactions" ? "account-nav-link selected" : "account-nav-link"} href="/admin/transactions"><span className="account-nav-icon"><NavIcon name="receipt" /></span>Transaction history</Link>
+        <p className="account-sidebar-label staff-nav-label">YOUR ACCOUNT</p>
+        <Link className={activeHref === "/account/profile" ? "account-nav-link selected" : "account-nav-link"} href="/account/profile"><span className="account-nav-icon"><NavIcon name="profile" /></span>My profile</Link>
       </>}
     </nav>
     <div className="account-user"><span className="account-avatar">{user.name.slice(0, 1).toUpperCase()}</span><div><strong>{user.name}</strong><small>{user.email}</small></div></div>

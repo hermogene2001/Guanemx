@@ -5,6 +5,7 @@ import { z } from "zod";
 import { consumeRateLimit, getCurrentUser, sameOriginRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/finance";
+import { CURRENCY } from "@/lib/money";
 
 const rechargeSchema = z.object({ amount: z.number().int().min(3000).max(3_000_000) });
 
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const parsed = rechargeSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Enter an amount from RWF 3,000 to RWF 3,000,000." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Enter an amount from $3,000 to $3,000,000." }, { status: 400 });
 
   const existing = await prisma.rechargeRequest.findUnique({ where: { idempotencyKey }, include: { assignedAgent: { select: { name: true, phone: true } } } });
   if (existing) return existing.userId === user.id ? NextResponse.json({ id: existing.id, status: existing.status, amount: existing.amount.toFixed(0), agent: existing.assignedAgent }) : NextResponse.json({ error: "Request key already used." }, { status: 409 });
@@ -43,9 +44,9 @@ export async function POST(request: NextRequest) {
     const agentId = agents[randomInt(agents.length)].id;
     const result = await prisma.$transaction(async (tx) => {
       const recharge = await tx.rechargeRequest.create({ data: {
-        userId: user.id, assignedAgentId: agentId, amount: new Prisma.Decimal(parsed.data.amount), idempotencyKey,
+        userId: user.id, assignedAgentId: agentId, amount: new Prisma.Decimal(parsed.data.amount), currency: CURRENCY, idempotencyKey,
       }, include: { assignedAgent: { select: { name: true, phone: true } } } });
-      await recordAudit(tx, request, user.id, "recharge.requested", "RechargeRequest", recharge.id, { amountRwf: parsed.data.amount });
+      await recordAudit(tx, request, user.id, "recharge.requested", "RechargeRequest", recharge.id, { amount: parsed.data.amount });
       return recharge;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json({ id: result.id, amount: result.amount.toFixed(0), status: result.status, agent: result.assignedAgent }, { status: 201 });

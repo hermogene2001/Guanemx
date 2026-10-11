@@ -1,7 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomInt, randomUUID } from "node:crypto";
-import type { Prisma } from "@prisma/client";
-
-export const RWF = "RWF";
+import { Prisma } from "@prisma/client";
 
 export function newReference(prefix: string) {
   return `${prefix}-${randomUUID().replaceAll("-", "").slice(0, 20).toUpperCase()}`;
@@ -74,6 +72,19 @@ export function configuredReferralBonusPercent() {
   return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100 ? parsed : 0;
 }
 
-export function formatRwf(value: Prisma.Decimal | number | string) {
-  return Number(value).toLocaleString("en-RW", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+/**
+ * Default USD→RWF rate (how many Rwandan francs equal one US dollar) used when
+ * the platform setting has not been configured yet. Administrators override
+ * this in the admin console; this is an operational placeholder, not market
+ * data.
+ */
+export function configuredUsdToRwfRate(): Prisma.Decimal {
+  const parsed = Number(process.env.USD_TO_RWF_RATE ?? "1400");
+  return Number.isFinite(parsed) && parsed > 0 ? new Prisma.Decimal(parsed) : new Prisma.Decimal(1400);
+}
+
+/** Default withdrawal fee percentage; administrators override this in the admin console. */
+export function configuredWithdrawalFeePercent(): Prisma.Decimal {
+  const parsed = Number(process.env.WITHDRAWAL_FEE_PERCENT ?? "10");
+  return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100 ? new Prisma.Decimal(parsed) : new Prisma.Decimal(10);
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
+import { CURRENCY } from "@/lib/money";
 
 vi.mock("@/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth")>();
@@ -47,7 +48,7 @@ describe("robot subscription checkout (integration)", () => {
 
   it("returns 409 when the Main Balance does not cover the plan", async () => {
     const { user, plan } = await seedRobotPlan();
-    await createWallet(user.id, 10000);
+    await createWallet(user.id, 10000, CURRENCY);
     setCurrentUser(fakeFor(user));
 
     const res = await subscribe(makeRequest("/api/subscriptions", { body: validBody(plan.id) }));
@@ -60,7 +61,7 @@ describe("robot subscription checkout (integration)", () => {
 
   it("charges the wallet and creates an active subscription", async () => {
     const { user, robot, plan } = await seedRobotPlan();
-    const wallet = await createWallet(user.id, 100000);
+    const wallet = await createWallet(user.id, 100000, CURRENCY);
     setCurrentUser(fakeFor(user));
 
     const res = await subscribe(makeRequest("/api/subscriptions", { body: validBody(plan.id) }));
@@ -71,7 +72,7 @@ describe("robot subscription checkout (integration)", () => {
     expect(data.subscription.robot).toBe(robot.name);
     expect(data.subscription.plan).toBe(plan.name);
     expect(data.subscription.price).toBe("15000.00");
-    expect(data.subscription.currency).toBe("RWF");
+    expect(data.subscription.currency).toBe(CURRENCY);
 
     const afterWallet = await prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
     expect(afterWallet.availableBalance.equals(new Prisma.Decimal("85000"))).toBe(true);
@@ -80,6 +81,7 @@ describe("robot subscription checkout (integration)", () => {
     expect(subscription.robotId).toBe(robot.id);
     expect(subscription.robotPlanId).toBe(plan.id);
     expect(subscription.status).toBe("ACTIVE");
+    expect(subscription.dailyReturnPercentage.equals(new Prisma.Decimal("2.50"))).toBe(true);
     expect(subscription.expiresAt!.getTime() - subscription.startAt!.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
 
     const tx = await prisma.transaction.findUniqueOrThrow({ where: { idempotencyKey: "00000000-0000-4000-8000-000000000001" } });
@@ -98,7 +100,7 @@ describe("robot subscription checkout (integration)", () => {
 
   it("replays the same checkout key without charging twice", async () => {
     const { user, plan } = await seedRobotPlan();
-    const wallet = await createWallet(user.id, 100000);
+    const wallet = await createWallet(user.id, 100000, CURRENCY);
     setCurrentUser(fakeFor(user));
 
     const first = await subscribe(makeRequest("/api/subscriptions", { body: validBody(plan.id) }));
@@ -120,8 +122,8 @@ describe("robot subscription checkout (integration)", () => {
   it("rejects a checkout key already used by another user", async () => {
     const { user, plan } = await seedRobotPlan();
     const other = await createUser();
-    await createWallet(user.id, 100000);
-    await createWallet(other.id, 100000);
+    await createWallet(user.id, 100000, CURRENCY);
+    await createWallet(other.id, 100000, CURRENCY);
     setCurrentUser(fakeFor(user));
     await subscribe(makeRequest("/api/subscriptions", { body: validBody(plan.id) }));
 
@@ -140,10 +142,10 @@ describe("robot subscription checkout (integration)", () => {
   it("expires due subscriptions and prunes expired tokens and sessions", async () => {
     const { user, plan } = await seedRobotPlan();
     const due = await prisma.subscription.create({
-      data: { userId: user.id, robotId: plan.robotId, robotPlanId: plan.id, status: "ACTIVE", price: PRICE, currency: "RWF", startAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000), expiresAt: new Date(Date.now() - 1000) },
+      data: { userId: user.id, robotId: plan.robotId, robotPlanId: plan.id, status: "ACTIVE", price: PRICE, currency: CURRENCY, startAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000), expiresAt: new Date(Date.now() - 1000) },
     });
     const notDue = await prisma.subscription.create({
-      data: { userId: user.id, robotId: plan.robotId, robotPlanId: plan.id, status: "ACTIVE", price: PRICE, currency: "RWF", startAt: new Date(), expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
+      data: { userId: user.id, robotId: plan.robotId, robotPlanId: plan.id, status: "ACTIVE", price: PRICE, currency: CURRENCY, startAt: new Date(), expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
     });
     await prisma.verificationToken.create({
       data: { userId: user.id, purpose: "verify-email", tokenHash: "stale-token-hash-1", expiresAt: new Date(Date.now() - 1000) },
@@ -184,7 +186,7 @@ async function seedRobotPlan() {
     },
   });
   const plan = await prisma.robotPlan.create({
-    data: { robotId: robot.id, name: "Pro 30d", durationDays: 30, price: PRICE, currency: "RWF", status: "ACTIVE" },
+    data: { robotId: robot.id, name: "Pro 30d", durationDays: 30, price: PRICE, currency: CURRENCY, dailyReturnPercentage: "2.50", status: "ACTIVE" },
   });
   const user = await createUser();
   return { user, robot, plan };

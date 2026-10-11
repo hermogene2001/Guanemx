@@ -191,7 +191,7 @@ describe("recharge wallet flow (integration)", () => {
   });
 
   it("pays the configured referral bonus to the inviter on confirmation", async () => {
-    process.env.REFERRAL_RECHARGE_BONUS_PERCENT = "10";
+    await prisma.platformSetting.upsert({ where: { id: "default" }, create: { id: "default", referralBonusPercent: 10 }, update: { referralBonusPercent: 10 } });
     const inviter = await createUser();
     const user = await createUser({ invitedById: inviter.id });
     const agent = await createAgent();

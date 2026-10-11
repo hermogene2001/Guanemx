@@ -1,11 +1,31 @@
-import { RobotStatus, PlanStatus, Prisma } from "@prisma/client";
+import { RobotStatus, PlanStatus, Prisma, type Robot as RobotModel } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 const activePlanSelection = {
   where: { status: PlanStatus.ACTIVE },
   orderBy: { price: "asc" as const },
-  select: { id: true, name: true, description: true, durationDays: true, price: true, currency: true },
+  select: { id: true, name: true, description: true, durationDays: true, price: true, dailyReturnPercentage: true, currency: true },
 };
+
+const robotListingSelection = {
+  id: true,
+  name: true,
+  slug: true,
+  description: true,
+  strategyDescription: true,
+  market: true,
+  riskLevel: true,
+  robotType: true,
+  status: true,
+  tier: true,
+  performanceKind: true,
+  performanceSummary: true,
+  imageContentType: true,
+  createdAt: true,
+  updatedAt: true,
+  plans: activePlanSelection,
+  _count: { select: { subscriptions: true } },
+} satisfies Prisma.RobotSelect;
 
 export async function getActiveRobots(filters?: { query?: string; risk?: string; type?: string }) {
   const where: Prisma.RobotWhereInput = {
@@ -20,7 +40,12 @@ export async function getActiveRobots(filters?: { query?: string; risk?: string;
   const rows = await prisma.robot.findMany({
     where,
     orderBy: { name: "asc" },
-    include: { plans: activePlanSelection },
+    select: {
+      id: true, name: true, slug: true, description: true, strategyDescription: true,
+      market: true, riskLevel: true, robotType: true, status: true, tier: true,
+      performanceKind: true, performanceSummary: true, imageContentType: true,
+      createdAt: true, updatedAt: true, plans: activePlanSelection,
+    },
   });
   return rows.filter((robot) => robot.plans.length > 0);
 }
@@ -28,6 +53,12 @@ export async function getActiveRobots(filters?: { query?: string; risk?: string;
 export async function getActiveRobot(slug: string) {
   return prisma.robot.findFirst({
     where: { slug, status: RobotStatus.ACTIVE },
-    include: { plans: activePlanSelection, _count: { select: { subscriptions: true } } },
+    select: robotListingSelection,
   });
+}
+
+export function robotImageUrl(robot: Pick<RobotModel, "slug" | "imageContentType" | "updatedAt">) {
+  return robot.imageContentType
+    ? `/api/robots/${encodeURIComponent(robot.slug)}/image?v=${robot.updatedAt.getTime()}`
+    : null;
 }

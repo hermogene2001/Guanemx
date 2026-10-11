@@ -41,7 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         } });
         await tx.transaction.update({ where: { id: withdrawal.transactionId }, data: { status: "REJECTED" } });
         await tx.withdrawal.update({ where: { id }, data: { status: "REJECTED", reviewReason: parsed.data.reason || null, reviewedById: reviewer.id, processedAt: now } });
-        await recordAudit(tx, request, reviewer.id, "withdrawal.rejected", "Withdrawal", id, { amountRwf: amount.toFixed(2), reason: parsed.data.reason || null });
+        await recordAudit(tx, request, reviewer.id, "withdrawal.rejected", "Withdrawal", id, { amount: amount.toFixed(2), reason: parsed.data.reason || null });
         return { status: "REJECTED", returnedAmount: amount.toFixed(2) };
       }
 
@@ -51,12 +51,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userId, type: "WITHDRAWAL", status: "PROCESSING", amount: withdrawal.netPayout, currency: withdrawal.transaction.currency,
         reference: newReference("PAY"), description: "Approved net payout recorded for manual payment; gross was already deducted at request time.",
       } });
+      const feePercent = amount.gt(0) ? withdrawal.fee.div(amount).mul(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP) : new Prisma.Decimal(0);
       const fee = await tx.transaction.create({ data: {
         userId, type: "FEE", status: "COMPLETED", amount: withdrawal.fee, currency: withdrawal.transaction.currency,
-        reference: newReference("FEE"), description: "10% withdrawal service fee; included in the gross withdrawal deduction.",
+        reference: newReference("FEE"), description: `${feePercent.toFixed(2)}% withdrawal service fee; included in the gross withdrawal deduction.`,
       } });
       await recordAudit(tx, request, reviewer.id, "withdrawal.approved", "Withdrawal", id, {
-        grossRwf: amount.toFixed(2), netPayoutRwf: withdrawal.netPayout.toFixed(2), feeRwf: withdrawal.fee.toFixed(2),
+        gross: amount.toFixed(2), netPayout: withdrawal.netPayout.toFixed(2), fee: withdrawal.fee.toFixed(2), feePercent: feePercent.toFixed(2),
         payoutTransactionId: payout.id, feeTransactionId: fee.id, manualPayoutRequired: true,
       });
       return { status: "APPROVED", netPayout: withdrawal.netPayout.toFixed(2), fee: withdrawal.fee.toFixed(2), manualPayoutRequired: true };

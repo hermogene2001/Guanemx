@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/environment";
 import { getActiveRobots } from "@/lib/robots";
+import { robotImageUrl } from "@/lib/robots";
 
 const querySchema = z.object({
   q: z.string().trim().max(80).optional(),
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
       riskLevel: robot.riskLevel,
       robotType: robot.robotType,
       tier: robot.tier,
+      imageUrl: robotImageUrl(robot),
       performanceKind: robot.performanceKind,
       performanceSummary: robot.performanceSummary,
       plans: robot.plans.map((plan) => ({ ...plan, price: plan.price.toFixed(2) })),

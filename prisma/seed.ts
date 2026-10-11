@@ -12,6 +12,15 @@ async function main() {
   });
   console.log(`community room ready: ${room.name} (${room.id})`);
 
+  // Ensure the singleton platform-settings row exists. Values fall back to
+  // schema defaults; administrators adjust them in the admin console.
+  const settings = await prisma.platformSetting.upsert({
+    where: { id: "default" },
+    create: { id: "default" },
+    update: {},
+  });
+  console.log(`platform settings ready: USD→RWF rate ${settings.usdToRwfRate}, withdrawal fee ${settings.withdrawalFeePercent}%`);
+
   // Optional bootstrap: point SEED_ADMIN_EMAIL at a registered account to
   // promote it to ADMIN, matching the documented one-off promotion step.
   const email = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();

@@ -5,6 +5,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 import { authConfigurationReady, consumeRateLimit, sameOriginRequest } from "@/lib/auth";
 import { sendMail, verificationLink } from "@/lib/mailer";
+import { CURRENCY } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 import { createVerificationToken, VERIFY_EMAIL_TTL_MS } from "@/lib/verification-tokens";
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
         name, email, passwordHash, status: UserStatus.PENDING_VERIFICATION,
         referralCode: randomBytes(6).toString("hex").toUpperCase(), invitedById: inviter?.id,
       } });
-      await tx.wallet.create({ data: { userId: user.id, currency: "RWF" } });
+      await tx.wallet.create({ data: { userId: user.id, currency: CURRENCY } });
       const verificationToken = await createVerificationToken(tx, user.id, "verify-email", VERIFY_EMAIL_TTL_MS);
       return verificationToken;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

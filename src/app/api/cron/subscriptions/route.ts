@@ -1,22 +1,18 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isAuthorizedCronRequest } from "@/lib/cron-auth";
+import { runRobotEarnings } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 
-function authorized(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!secret || secret.length < 32 || secret.toLowerCase().includes("replace-with") || !supplied) return false;
-  const expectedHash = createHash("sha256").update(secret).digest();
-  const suppliedHash = createHash("sha256").update(supplied).digest();
-  return timingSafeEqual(expectedHash, suppliedHash);
-}
-
 export async function POST(request: NextRequest) {
-  if (!authorized(request)) return NextResponse.json({ error: "Unauthorized scheduled job request." }, { status: 401 });
+  if (!isAuthorizedCronRequest(request)) return NextResponse.json({ error: "Unauthorized scheduled job request." }, { status: 401 });
   const now = new Date();
   try {
+    const earnings = await runRobotEarnings(now);
+    if (earnings.failedCount > 0) {
+      return NextResponse.json({ error: "Daily robot earnings failed; due subscriptions were not expired.", earnings }, { status: 500 });
+    }
     const [subscriptions, tokens, sessions] = await prisma.$transaction([
       prisma.subscription.updateMany({
         where: { status: "ACTIVE", expiresAt: { lte: now } },
@@ -27,6 +23,7 @@ export async function POST(request: NextRequest) {
     ]);
     return NextResponse.json({
       completedAt: now.toISOString(),
+      creditedRobotDays: earnings.processedCount,
       expiredSubscriptions: subscriptions.count,
       removedExpiredVerificationTokens: tokens.count,
       removedExpiredSessions: sessions.count,

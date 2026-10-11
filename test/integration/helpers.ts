@@ -3,6 +3,7 @@ import { Prisma, type UserRole, type UserStatus } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { encryptPayoutAccountNumber } from "@/lib/finance";
+import { CURRENCY } from "@/lib/money";
 
 export const API_ORIGIN = "http://localhost";
 
@@ -55,9 +56,9 @@ export async function createAgent(overrides: { phone?: string } = {}) {
   return createUser({ role: "AGENT", phone: overrides.phone ?? "250788000001", status: "ACTIVE" });
 }
 
-export async function createWallet(userId: string, availableBalance: Prisma.Decimal | number = new Prisma.Decimal(0)) {
+export async function createWallet(userId: string, availableBalance: Prisma.Decimal | number = new Prisma.Decimal(0), currency = CURRENCY) {
   const balance = availableBalance instanceof Prisma.Decimal ? availableBalance : new Prisma.Decimal(availableBalance);
-  return prisma.wallet.create({ data: { userId, currency: "RWF", availableBalance: balance } });
+  return prisma.wallet.create({ data: { userId, currency, availableBalance: balance } });
 }
 
 export async function createPayoutDestination(userId: string, accountNumber = "1234 5678 9012") {
@@ -80,12 +81,12 @@ export async function cleanupDatabase() {
   await prisma.$transaction([
     prisma.communityMessage.deleteMany(),
     prisma.communityRoom.deleteMany(),
-    prisma.subscription.deleteMany(),
     prisma.withdrawal.deleteMany(),
     prisma.rechargeRequest.deleteMany(),
     prisma.payment.deleteMany(),
     prisma.walletLedger.deleteMany(),
     prisma.transaction.deleteMany(),
+    prisma.subscription.deleteMany(),
     prisma.wallet.deleteMany(),
     prisma.payoutDestination.deleteMany(),
     prisma.userSession.deleteMany(),
@@ -95,6 +96,8 @@ export async function cleanupDatabase() {
     prisma.robot.deleteMany(),
     prisma.user.deleteMany(),
     prisma.rateLimitBucket.deleteMany(),
+    prisma.cronJobRun.deleteMany(),
+    prisma.platformSetting.deleteMany(),
   ]);
 }
 

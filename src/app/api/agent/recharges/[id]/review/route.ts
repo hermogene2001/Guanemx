@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getCurrentUser, sameOriginRequest } from "@/lib/auth";
-import { configuredReferralBonusPercent, newReference, recordAudit } from "@/lib/finance";
+import { newReference, recordAudit } from "@/lib/finance";
+import { CURRENCY } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { getPlatformSettings } from "@/lib/settings";
 
 const reviewSchema = z.object({ action: z.enum(["confirm", "reject"]), reason: z.string().trim().max(500).optional() });
 
@@ -27,42 +29,42 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         await recordAudit(tx, request, reviewer.id, "recharge.rejected", "RechargeRequest", id, { reason: parsed.data.reason || null });
         return { status: updated.status, creditedAmount: "0", referralBonus: "0" };
       }
-      const wallet = await tx.wallet.upsert({ where: { userId: recharge.userId }, create: { userId: recharge.userId, currency: "RWF" }, update: {} });
+      const wallet = await tx.wallet.upsert({ where: { userId: recharge.userId }, create: { userId: recharge.userId, currency: CURRENCY }, update: {} });
       const amount = recharge.amount;
       const before = wallet.availableBalance;
       const after = before.add(amount);
       await tx.wallet.update({ where: { id: wallet.id }, data: { availableBalance: after } });
       const transaction = await tx.transaction.create({ data: {
-        userId: recharge.userId, type: "DEPOSIT", status: "COMPLETED", amount, currency: "RWF",
+        userId: recharge.userId, type: "DEPOSIT", status: "COMPLETED", amount, currency: CURRENCY,
         reference: newReference("RCH"), description: "Agent-confirmed manual recharge",
       } });
       await tx.walletLedger.create({ data: {
         walletId: wallet.id, transactionId: transaction.id, entryType: "DEPOSIT", balanceType: "MAIN",
-        amount, currency: "RWF", balanceBefore: before, balanceAfter: after, reference: transaction.reference,
+        amount, currency: CURRENCY, balanceBefore: before, balanceAfter: after, reference: transaction.reference,
       } });
       await tx.rechargeRequest.update({ where: { id }, data: { status: "CONFIRMED", reviewedById: reviewer.id, reviewedAt: now, transactionId: transaction.id } });
 
       let bonusText = "0.00";
-      const bonusPercent = configuredReferralBonusPercent();
-      if (recharge.user.invitedById && bonusPercent > 0) {
+      const { referralBonusPercent: bonusPercent } = await getPlatformSettings(tx);
+      if (recharge.user.invitedById && bonusPercent.gt(0)) {
         const bonus = amount.mul(bonusPercent).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
         if (bonus.gt(0)) {
-          const inviterWallet = await tx.wallet.upsert({ where: { userId: recharge.user.invitedById }, create: { userId: recharge.user.invitedById, currency: "RWF" }, update: {} });
+          const inviterWallet = await tx.wallet.upsert({ where: { userId: recharge.user.invitedById }, create: { userId: recharge.user.invitedById, currency: CURRENCY }, update: {} });
           const inviterBefore = inviterWallet.availableBalance;
           const inviterAfter = inviterBefore.add(bonus);
           await tx.wallet.update({ where: { id: inviterWallet.id }, data: { availableBalance: inviterAfter } });
           const bonusTransaction = await tx.transaction.create({ data: {
-            userId: recharge.user.invitedById, type: "REFERRAL_BONUS", status: "COMPLETED", amount: bonus, currency: "RWF",
-            reference: newReference("REF"), description: `Configured recharge referral bonus (${bonusPercent}%)`,
+            userId: recharge.user.invitedById, type: "REFERRAL_BONUS", status: "COMPLETED", amount: bonus, currency: CURRENCY,
+            reference: newReference("REF"), description: `Configured recharge referral bonus (${bonusPercent.toFixed(2)}%)`,
           } });
           await tx.walletLedger.create({ data: {
             walletId: inviterWallet.id, transactionId: bonusTransaction.id, entryType: "REFERRAL_BONUS", balanceType: "MAIN",
-            amount: bonus, currency: "RWF", balanceBefore: inviterBefore, balanceAfter: inviterAfter, reference: bonusTransaction.reference,
+            amount: bonus, currency: CURRENCY, balanceBefore: inviterBefore, balanceAfter: inviterAfter, reference: bonusTransaction.reference,
           } });
           bonusText = bonus.toFixed(2);
         }
       }
-      await recordAudit(tx, request, reviewer.id, "recharge.confirmed", "RechargeRequest", id, { amountRwf: amount.toFixed(2), referralBonusRwf: bonusText });
+      await recordAudit(tx, request, reviewer.id, "recharge.confirmed", "RechargeRequest", id, { amount: amount.toFixed(2), referralBonus: bonusText, referralBonusPercent: bonusPercent.toFixed(2) });
       return { status: "CONFIRMED", creditedAmount: amount.toFixed(2), referralBonus: bonusText };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     return NextResponse.json(outcome);

@@ -3,7 +3,9 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { consumeRateLimit, getCurrentUser, sameOriginRequest } from "@/lib/auth";
 import { kigaliDayStart, newReference, recordAudit } from "@/lib/finance";
+import { CURRENCY } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { getPlatformSettings } from "@/lib/settings";
 
 const withdrawalSchema = z.object({
   amount: z.number().int().min(1000).max(3_000_000),
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const parsed = withdrawalSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Enter a withdrawal from RWF 1,000 to RWF 3,000,000 and choose a balance and payout destination." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Enter a withdrawal from $1,000 to $3,000,000 and choose a balance and payout destination." }, { status: 400 });
   const idempotencyKey = request.headers.get("idempotency-key");
   if (!idempotencyKey || idempotencyKey.length > 100) return NextResponse.json({ error: "A valid request key is required." }, { status: 400 });
 
@@ -45,24 +47,25 @@ export async function POST(request: NextRequest) {
     if (!destination) return NextResponse.json({ error: "Choose one of your saved payout destinations." }, { status: 400 });
 
     const amount = new Prisma.Decimal(parsed.data.amount);
-    const fee = amount.mul(10).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
-    const netPayout = amount.sub(fee);
     const result = await prisma.$transaction(async (tx) => {
       const duplicate = await tx.transaction.findUnique({ where: { idempotencyKey }, include: { withdrawal: true } });
       if (duplicate) {
         if (duplicate.userId !== user.id || !duplicate.withdrawal) throw new Error("REQUEST_KEY_IN_USE");
         return { withdrawal: duplicate.withdrawal, transaction: duplicate, repeated: true };
       }
+      const settings = await getPlatformSettings(tx);
+      const fee = amount.mul(settings.withdrawalFeePercent).div(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_DOWN);
+      const netPayout = amount.sub(fee);
       const start = kigaliDayStart();
       const priorToday = await tx.withdrawal.findFirst({ where: { transaction: { userId: user.id, createdAt: { gte: start } } }, select: { id: true } });
       if (priorToday) throw new Error("DAILY_LIMIT");
-      const wallet = await tx.wallet.upsert({ where: { userId: user.id }, create: { userId: user.id, currency: "RWF" }, update: {} });
+      const wallet = await tx.wallet.upsert({ where: { userId: user.id }, create: { userId: user.id, currency: CURRENCY }, update: {} });
       const before = parsed.data.sourceBalance === "MAIN" ? wallet.availableBalance : wallet.growthBalance;
       if (before.lt(amount)) throw new Error("INSUFFICIENT_BALANCE");
       const after = before.sub(amount);
       await tx.wallet.update({ where: { id: wallet.id }, data: parsed.data.sourceBalance === "MAIN" ? { availableBalance: after } : { growthBalance: after } });
       const transaction = await tx.transaction.create({ data: {
-        userId: user.id, type: "WITHDRAWAL", status: "PENDING", amount, currency: "RWF",
+        userId: user.id, type: "WITHDRAWAL", status: "PENDING", amount, currency: CURRENCY,
         reference: newReference("WDR"), idempotencyKey,
         description: `Gross withdrawal request from ${parsed.data.sourceBalance === "MAIN" ? "Main Balance" : "Growth Balance"}`,
       } });
@@ -72,14 +75,14 @@ export async function POST(request: NextRequest) {
       } });
       await tx.walletLedger.create({ data: {
         walletId: wallet.id, transactionId: transaction.id, entryType: "WITHDRAWAL", balanceType: parsed.data.sourceBalance,
-        amount: amount.negated(), currency: "RWF", balanceBefore: before, balanceAfter: after, reference: transaction.reference,
+        amount: amount.negated(), currency: CURRENCY, balanceBefore: before, balanceAfter: after, reference: transaction.reference,
       } });
       await recordAudit(tx, request, user.id, "withdrawal.requested", "Withdrawal", withdrawal.id, {
-        amountRwf: parsed.data.amount, feeRwf: fee.toFixed(2), netPayoutRwf: netPayout.toFixed(2), sourceBalance: parsed.data.sourceBalance,
+        amount: parsed.data.amount, fee: fee.toFixed(2), feePercent: settings.withdrawalFeePercent.toFixed(2), netPayout: netPayout.toFixed(2), sourceBalance: parsed.data.sourceBalance,
       });
       return { withdrawal, transaction, repeated: false };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    return NextResponse.json({ id: result.withdrawal.id, repeated: result.repeated, status: result.withdrawal.status, amount: result.transaction.amount.toFixed(0), fee: fee.toFixed(2), netPayout: netPayout.toFixed(2) }, { status: result.repeated ? 200 : 201 });
+    return NextResponse.json({ id: result.withdrawal.id, repeated: result.repeated, status: result.withdrawal.status, amount: result.transaction.amount.toFixed(0), fee: result.withdrawal.fee.toFixed(2), netPayout: result.withdrawal.netPayout.toFixed(2) }, { status: result.repeated ? 200 : 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "DAILY_LIMIT") return NextResponse.json({ error: "You can submit one withdrawal request per Kigali calendar day." }, { status: 409 });
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") return NextResponse.json({ error: "The selected balance is lower than the requested gross amount." }, { status: 409 });

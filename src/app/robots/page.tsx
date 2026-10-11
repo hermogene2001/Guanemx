@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { hasDatabaseUrl } from "@/lib/environment";
 import { getActiveRobots } from "@/lib/robots";
+import { robotImageUrl } from "@/lib/robots";
 import AccountNavigation from "@/components/account-navigation";
 import RobotMarketplace from "@/components/robot-marketplace";
 
@@ -40,7 +41,8 @@ export default async function RobotsPage() {
         riskLevel: robot.riskLevel,
         robotType: robot.robotType,
         tier: robot.tier,
-        plans: robot.plans.map((plan) => ({ id: plan.id, name: plan.name, durationDays: plan.durationDays, price: plan.price.toFixed(2), currency: plan.currency })),
+        imageUrl: robotImageUrl(robot),
+        plans: robot.plans.map((plan) => ({ id: plan.id, name: plan.name, durationDays: plan.durationDays, price: plan.price.toFixed(2), dailyReturnPercentage: plan.dailyReturnPercentage.toFixed(2), currency: plan.currency })),
       }))} />}
       <p className="risk-note">Past performance does not guarantee future results. Trading involves risk and losses are possible.</p>
     </div></section>

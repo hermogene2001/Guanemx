@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { CURRENCY } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -7,7 +8,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Sign in to view your wallet." }, { status: 401 });
   const wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
   return NextResponse.json({ wallet: {
-    currency: wallet?.currency ?? "RWF",
+    currency: wallet?.currency ?? CURRENCY,
     mainBalance: wallet?.availableBalance.toFixed(2) ?? "0.00",
     pendingBalance: wallet?.pendingBalance.toFixed(2) ?? "0.00",
     growthBalance: wallet?.growthBalance.toFixed(2) ?? "0.00",

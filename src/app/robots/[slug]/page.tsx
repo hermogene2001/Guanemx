@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getActiveRobot } from "@/lib/robots";
+import { getActiveRobot, robotImageUrl } from "@/lib/robots";
 import AccountFrame from "@/components/account-frame";
 import RobotProductView from "@/components/robot-product-view";
 
@@ -29,9 +29,10 @@ export default async function RobotDetailsPage({ params }: { params: Promise<{ s
     riskLevel: robot.riskLevel,
     robotType: robot.robotType,
     tier: robot.tier ?? "BEGINNER",
+    imageUrl: robotImageUrl(robot),
     performanceKind: robot.performanceKind,
     performanceSummary: robot.performanceSummary,
     subscriberCount: robot._count.subscriptions,
-    plans: robot.plans.map((plan) => ({ id: plan.id, name: plan.name, description: plan.description, durationDays: plan.durationDays, price: plan.price.toFixed(2), currency: plan.currency })),
+    plans: robot.plans.map((plan) => ({ id: plan.id, name: plan.name, description: plan.description, durationDays: plan.durationDays, price: plan.price.toFixed(2), dailyReturnPercentage: plan.dailyReturnPercentage.toFixed(2), currency: plan.currency })),
   }} /></AccountFrame>;
 }
