@@ -6,7 +6,8 @@ export type MailMessage = {
 
 /**
  * Mail delivery is pluggable via MAIL_DRIVER. `log` is development-only;
- * `resend` sends through the Resend email API when configured.
+ * `resend` sends through the Resend email API; `smtp` sends through any SMTP
+ * server (for example Gmail with an app password).
  */
 export function mailDriver() {
   return (process.env.MAIL_DRIVER ?? "log").trim().toLowerCase();
@@ -32,8 +33,30 @@ export async function sendMail(message: MailMessage) {
     if (!response.ok) throw new Error(`Resend email delivery failed with status ${response.status}.`);
     return;
   }
+  if (driver === "smtp") {
+    const host = process.env.SMTP_HOST;
+    const user = process.env.SMTP_USER;
+    const password = process.env.SMTP_PASSWORD;
+    const from = process.env.MAIL_FROM;
+    if (!host || !user || !password || !from) {
+      throw new Error("MAIL_DRIVER=smtp requires SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and MAIL_FROM.");
+    }
+    const port = Number.parseInt(process.env.SMTP_PORT ?? "465", 10);
+    if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+      throw new Error("SMTP_PORT must be a valid port number.");
+    }
+    const { default: nodemailer } = await import("nodemailer");
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass: password },
+    });
+    await transporter.sendMail({ from, to: message.to, subject: message.subject, text: message.text });
+    return;
+  }
   throw new Error(
-    `MAIL_DRIVER=${driver} is not supported. Configure "resend" or use "log" for local development.`,
+    `MAIL_DRIVER=${driver} is not supported. Configure "resend", "smtp", or use "log" for local development.`,
   );
 }
 

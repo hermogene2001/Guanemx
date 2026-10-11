@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { appBaseUrl, mailDriver, sendMail, verificationLink } from "@/lib/mailer";
 import { hashVerificationToken } from "@/lib/verification-tokens";
 
+const { sendMailMock } = vi.hoisted(() => ({ sendMailMock: vi.fn() }));
+
+vi.mock("nodemailer", () => ({
+  default: { createTransport: vi.fn(() => ({ sendMail: sendMailMock })) },
+}));
+
 describe("verification token hashing", () => {
   it("hashes a raw token to a stable 64-character hex digest", () => {
     const token = "raw-token-abc123";
@@ -17,6 +23,11 @@ describe("mailer helpers", () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
     delete process.env.RESEND_API_KEY;
     delete process.env.MAIL_FROM;
+    delete process.env.SMTP_HOST;
+    delete process.env.SMTP_PORT;
+    delete process.env.SMTP_USER;
+    delete process.env.SMTP_PASSWORD;
+    sendMailMock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -42,8 +53,37 @@ describe("mailer helpers", () => {
   });
 
   it("fails loudly when an unimplemented driver is selected", async () => {
+    process.env.MAIL_DRIVER = "carrier-pigeon";
+    await expect(sendMail({ to: "a@example.com", subject: "x", text: "y" })).rejects.toThrow(
+      "MAIL_DRIVER=carrier-pigeon is not supported",
+    );
+  });
+
+  it("requires SMTP configuration before using the smtp driver", async () => {
     process.env.MAIL_DRIVER = "smtp";
-    await expect(sendMail({ to: "a@example.com", subject: "x", text: "y" })).rejects.toThrow("MAIL_DRIVER=smtp is not supported");
+    process.env.MAIL_FROM = "GuanemX <noreply@example.com>";
+    await expect(sendMail({ to: "a@example.com", subject: "x", text: "y" })).rejects.toThrow(
+      "requires SMTP_HOST, SMTP_USER, SMTP_PASSWORD, and MAIL_FROM",
+    );
+  });
+
+  it("sends through SMTP when configured", async () => {
+    sendMailMock.mockResolvedValueOnce(undefined);
+    process.env.MAIL_DRIVER = "smtp";
+    process.env.SMTP_HOST = "smtp.gmail.com";
+    process.env.SMTP_PORT = "587";
+    process.env.SMTP_USER = "sender@example.com";
+    process.env.SMTP_PASSWORD = "app-password";
+    process.env.MAIL_FROM = "GuanemX <sender@example.com>";
+
+    await sendMail({ to: "recipient@example.com", subject: "Verify", text: "Body" });
+
+    expect(sendMailMock).toHaveBeenCalledWith({
+      from: "GuanemX <sender@example.com>",
+      to: "recipient@example.com",
+      subject: "Verify",
+      text: "Body",
+    });
   });
 
   it("requires API configuration before using the resend driver", async () => {

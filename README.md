@@ -11,7 +11,7 @@ This workspace includes a standalone `GuanemX V1 prototype.html`, which serves a
 5. (Optional) Run `npm run db:seed`. The seed is idempotent and never fabricates robots, plans, balances, or performance data: it ensures the General community room exists and optionally promotes a registered account to `ADMIN` when `SEED_ADMIN_EMAIL` is set.
 6. Run `npm run dev`.
 
-No payment provider is selected. Recharge confirmation and withdrawal accounting are agent-operated; no provider currently receives or sends funds. Withdrawal approvals record accounting only; actual payouts are performed manually outside GuanemX. Email uses `MAIL_DRIVER=log` locally; production must configure `MAIL_DRIVER=resend`, `RESEND_API_KEY`, and `MAIL_FROM`.
+No payment provider is selected. Recharge confirmation and withdrawal accounting are agent-operated; no provider currently receives or sends funds. Withdrawal approvals record accounting only; actual payouts are performed manually outside GuanemX. Email uses `MAIL_DRIVER=log` locally; production must configure `MAIL_DRIVER=resend` (`RESEND_API_KEY`, `MAIL_FROM`) or `MAIL_DRIVER=smtp` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`).
 
 ## Health gates
 
@@ -53,7 +53,7 @@ Prisma models cover users and database-backed sessions, login rate-limit buckets
 - Account services: wallet and ledger, manual recharge requests, withdrawal requests, payout destination setup (AES-256-GCM encrypted account numbers), transactions, profile, password change, and a General community room.
 - Manual recharge: a request assigns an active agent; an agent confirmation credits the Main Balance and writes the deposit transaction and ledger entry atomically. Optional referral bonus on confirmed recharges, configured under admin **Platform settings**.
 - Manual withdrawals: gross amount reserved at request time, configurable fee (default 10%), one per Kigali calendar day; an agent can approve (records net payout + fee for manual payment) or reject (returns the gross amount).
-- Email verification and password reset: single-use, hashed tokens; verification and reset pages; reset revokes all sessions; login requires an active account. Delivery supports development-only `MAIL_DRIVER=log` and the Resend API via `MAIL_DRIVER=resend`.
+- Email verification and password reset: single-use, hashed tokens; verification and reset pages; reset revokes all sessions; login requires an active account. Delivery supports development-only `MAIL_DRIVER=log`, the Resend API via `MAIL_DRIVER=resend`, and any SMTP server (e.g. Gmail with an app password) via `MAIL_DRIVER=smtp`.
 - Robot daily earnings: each plan configures a daily return percentage, snapshotted onto subscriptions at checkout. Due daily credits are posted to Main Balance with a transaction and immutable ledger entry; the scheduler catches up missed due days while a subscription and robot are active. Each day is credited atomically and idempotently.
 - Subscription lifecycle: subscriptions start immediately after successful checkout and expire after their selected plan duration. `/api/cron/subscriptions` processes due robot earnings before expiring subscriptions and removes expired sessions/tokens.
 - Agent operations: review queues for assigned recharge and withdrawal requests; every decision is audited.
