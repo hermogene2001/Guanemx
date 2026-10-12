@@ -396,3 +396,10 @@ body{background:var(--paper);color:var(--ink)}
 
 /* ── Agent dashboard metric link ─────────────────────────────────────────── */
 .staff-metric-link{color:var(--primary);font-size:10px;font-weight:700}
+
+/* Earning countdown */
+.earning-countdown{display:grid;align-items:center;justify-items:start;gap:4px;margin-top:13px;padding:14px 16px 15px;border-radius:12px;background:color-mix(in srgb,var(--primary) 9%,var(--card));border:1px solid color-mix(in srgb,var(--primary) 34%,var(--line))}
+.earning-countdown .earning-countdown-label{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+.earning-countdown strong{display:block;font-size:34px;font-weight:800;letter-spacing:.6px;font-variant-numeric:tabular-nums;line-height:1.08;color:var(--primary);animation:earning-tick .5s ease-out}
+@keyframes earning-tick{0%{transform:scale(1.06);filter:brightness(1.15)}100%{transform:scale(1);filter:brightness(1)}}
+@media(max-width:620px){.earning-countdown{padding:12px 13px}.earning-countdown strong{font-size:25px}}

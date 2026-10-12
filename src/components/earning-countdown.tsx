@@ -4,28 +4,39 @@ import { useEffect, useState } from "react";
 
 type Props = { target: string; daysRemaining: number };
 
-function formatRemaining(diffMs: number) {
-  if (diffMs <= 0) return "Earning due now";
-  const totalMinutes = Math.floor(diffMs / 60_000);
-  const days = Math.floor(totalMinutes / 1440);
-  const hours = Math.floor((totalMinutes % 1440) / 60);
-  const minutes = totalMinutes % 60;
-  if (days > 0) return `Next earning in ${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `Next earning in ${hours}h ${minutes}m`;
-  if (minutes > 0) return `Next earning in ${minutes}m`;
-  return "Next earning in <1m";
+function splitTime(totalSeconds: number) {
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { days, hours, minutes, seconds };
+}
+
+function formatTime(totalSeconds: number) {
+  const { days, hours, minutes, seconds } = splitTime(totalSeconds);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  if (days > 0) return `${days}d ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
 }
 
 export default function EarningCountdown({ target, daysRemaining }: Props) {
-  const [label, setLabel] = useState<string | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
-    const update = () => setLabel(formatRemaining(new Date(target).getTime() - Date.now()));
+    const update = () => {
+      setSecondsLeft(Math.max(0, Math.floor((new Date(target).getTime() - Date.now()) / 1000)));
+    };
     update();
-    const id = setInterval(update, 60_000);
+    const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, [target]);
 
   if (daysRemaining < 1) return null;
-  return <small role="status">{label ?? "Next earning…"}</small>;
+
+  return (
+    <div className="earning-countdown" role="status" aria-live="off">
+      <span className="earning-countdown-label">Next earning in</span>
+      {secondsLeft === null ? <strong>…</strong> : secondsLeft === 0 ? <strong>Due now — opens your wallet</strong> : <strong key={secondsLeft}>{formatTime(secondsLeft)}</strong>}
+    </div>
+  );
 }
