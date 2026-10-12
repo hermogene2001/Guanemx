@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateCycleEarning, settleDueEarnings } from "@/lib/robot-earnings";
+import { calculateCycleEarning, getNextRobotEarningDueAt, settleDueEarnings } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +47,9 @@ export async function GET() {
         projectedCycleEarnings: calculateCycleEarning(item.price, item.dailyReturnPercentage, item.robotPlan.durationDays).toFixed(2),
         lastCreditedAt: item.lastCreditedAt?.toISOString() ?? null,
         startedAt: item.startAt?.toISOString() ?? null,
+        nextEarningAt: item.status === "ACTIVE" && item.robot.status === "ACTIVE" && item.startAt
+          ? getNextRobotEarningDueAt(item.startAt, item.daysCompleted).toISOString()
+          : null,
       })),
     });
   } catch (error) {

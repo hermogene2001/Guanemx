@@ -68,6 +68,7 @@ describe("robot daily earnings (integration)", () => {
       daysRemaining: 1,
       totalEarned: "50.00",
       projectedCycleEarnings: "75.00",
+      nextEarningAt: new Date(startAt.getTime() + 3 * DAY_MS).toISOString(),
     }]);
 
     const replay = await runRobotEarnings(now);
