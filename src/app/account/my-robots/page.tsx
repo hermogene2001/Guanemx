@@ -3,13 +3,14 @@ import { redirect } from "next/navigation";
 import AccountFrame from "@/components/account-frame";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateCycleEarning } from "@/lib/robot-earnings";
+import { calculateCycleEarning, settleDueEarnings } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 
 export default async function MyRobotsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=%2Faccount%2Fmy-robots");
+  await settleDueEarnings(user.id);
   const subscriptions = await prisma.subscription.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, include: { robot: { select: { name: true, market: true, riskLevel: true, slug: true, status: true } }, robotPlan: { select: { name: true, durationDays: true } } } });
   const earnings = subscriptions.length ? await prisma.transaction.groupBy({
     by: ["subscriptionId"],

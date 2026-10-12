@@ -2,10 +2,12 @@
 import { getCurrentUser } from "@/lib/auth";
 import { CURRENCY } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { settleDueEarnings } from "@/lib/robot-earnings";
 
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in to view your wallet." }, { status: 401 });
+  await settleDueEarnings(user.id);
   const wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
   return NextResponse.json({ wallet: {
     currency: wallet?.currency ?? CURRENCY,

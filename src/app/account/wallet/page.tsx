@@ -4,12 +4,14 @@ import AccountFrame from "@/components/account-frame";
 import { getCurrentUser } from "@/lib/auth";
 import { formatUsd } from "@/lib/money";
 import { prisma } from "@/lib/prisma";
+import { settleDueEarnings } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 
 export default async function WalletPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=%2Faccount%2Fwallet");
+  await settleDueEarnings(user.id);
   const [wallet, ledger] = await Promise.all([
     prisma.wallet.findUnique({ where: { userId: user.id } }),
     prisma.walletLedger.findMany({ where: { wallet: { userId: user.id } }, orderBy: { createdAt: "desc" }, take: 8, include: { transaction: { select: { type: true, status: true, description: true } } } }),

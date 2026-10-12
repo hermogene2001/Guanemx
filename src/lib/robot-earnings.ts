@@ -121,6 +121,35 @@ async function processSubscription(subscriptionId: string, now: Date) {
   return processed;
 }
 
+/**
+ * Credits any robot-earning days that have become due for one user.
+ * Invoked when a signed-in user reads their wallet/robots so the first earning
+ * appears at ~24h instead of waiting for the once-daily scheduler. It reuses the
+ * same guarded per-day credit as the cron job, so it is idempotent and can never
+ * double-credit alongside a concurrent cron run. Never throws: it logs and
+ * returns the number of days credited so a failure cannot break a page load.
+ */
+export async function settleDueEarnings(userId: string, now = new Date()) {
+  let credited = 0;
+  try {
+    const subscriptions = await prisma.subscription.findMany({
+      where: { userId, status: "ACTIVE", dailyReturnPercentage: { gt: 0 }, robot: { status: "ACTIVE" } },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    });
+    for (const subscription of subscriptions) {
+      try {
+        credited += await processSubscription(subscription.id, now);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "robot_earning_on_access_failed", subscriptionId: subscription.id, message: error instanceof Error ? error.message : "unknown error" }));
+      }
+    }
+  } catch (error) {
+    console.error(JSON.stringify({ event: "robot_earning_on_access_failed", userId, message: error instanceof Error ? error.message : "unknown error" }));
+  }
+  return credited;
+}
+
 export async function runRobotEarnings(now = new Date()) {
   const run = await prisma.cronJobRun.create({ data: { job: ROBOT_EARNINGS_JOB, status: "RUNNING" } });
   console.log(JSON.stringify({ event: "robot_earnings_job_started", runId: run.id, startedAt: run.startedAt.toISOString() }));

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateCycleEarning } from "@/lib/robot-earnings";
+import { calculateCycleEarning, settleDueEarnings } from "@/lib/robot-earnings";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Sign in to view your robots." }, { status: 401 });
 
   try {
+    await settleDueEarnings(user.id);
     const subscriptions = await prisma.subscription.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },

@@ -9,7 +9,7 @@ vi.mock("@/lib/auth", async (importOriginal) => {
 import { GET as listUserRobots } from "@/app/api/users/robots/route";
 import { PATCH as updateRobot } from "@/app/api/admin/robots/[id]/route";
 import { prisma } from "@/lib/prisma";
-import { runRobotEarnings } from "@/lib/robot-earnings";
+import { runRobotEarnings, settleDueEarnings } from "@/lib/robot-earnings";
 import { CURRENCY } from "@/lib/money";
 import { cleanupDatabase, createUser, createWallet, fakeFor, makeRequest, setCurrentUser } from "./helpers";
 
@@ -86,6 +86,53 @@ describe("robot daily earnings (integration)", () => {
     await expect(prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } })).resolves.toMatchObject({
       availableBalance: new Prisma.Decimal("125.00"),
     });
+  });
+
+  it("settles only the requesting user's due days on access and is idempotent", async () => {
+    const { user, robot, plan } = await seedPlan(5);
+    const wallet = await createWallet(user.id, 0);
+    const other = await createUser();
+    const otherWallet = await createWallet(other.id, 0);
+    const now = new Date("2026-10-20T12:00:00.000Z");
+    const startAt = new Date(now.getTime() - (2 * DAY_MS + 1000));
+    const subscription = await prisma.subscription.create({
+      data: {
+        userId: user.id,
+        robotId: robot.id,
+        robotPlanId: plan.id,
+        status: "ACTIVE",
+        price: "1000.00",
+        currency: CURRENCY,
+        dailyReturnPercentage: "2.50",
+        startAt,
+        expiresAt: new Date(startAt.getTime() + 5 * DAY_MS),
+      },
+    });
+    const otherSubscription = await prisma.subscription.create({
+      data: {
+        userId: other.id,
+        robotId: robot.id,
+        robotPlanId: plan.id,
+        status: "ACTIVE",
+        price: "1000.00",
+        currency: CURRENCY,
+        dailyReturnPercentage: "2.50",
+        startAt,
+        expiresAt: new Date(startAt.getTime() + 5 * DAY_MS),
+      },
+    });
+
+    expect(await settleDueEarnings(user.id, now)).toBe(2);
+    await expect(prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } })).resolves.toMatchObject({
+      availableBalance: new Prisma.Decimal("50.00"),
+    });
+    await expect(prisma.wallet.findUniqueOrThrow({ where: { id: otherWallet.id } })).resolves.toMatchObject({
+      availableBalance: new Prisma.Decimal("0"),
+    });
+
+    expect(await settleDueEarnings(user.id, now)).toBe(0);
+    await expect(prisma.subscription.findUniqueOrThrow({ where: { id: subscription.id } })).resolves.toMatchObject({ daysCompleted: 2 });
+    await expect(prisma.subscription.findUniqueOrThrow({ where: { id: otherSubscription.id } })).resolves.toMatchObject({ daysCompleted: 0 });
   });
 
   it("does not credit a paused robot and reports earned total only to its owner", async () => {
