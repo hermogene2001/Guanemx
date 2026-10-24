@@ -50,7 +50,7 @@ export default function RechargePanel({ rate, minimumAmount }: { rate: string; m
     setBusy(true);
     setError("");
     try {
-      let body: any = { amount, paymentMethod };
+      const body: Record<string, unknown> = { amount, paymentMethod };
       if (paymentMethod === "CRYPTO") {
         body.cryptoWalletId = cryptoWalletId;
         if (selectedCryptoKey) {
@@ -126,7 +126,7 @@ export default function RechargePanel({ rate, minimumAmount }: { rate: string; m
     <section className="deposit-method-card">
       <header className="deposit-method-heading"><span className="deposit-method-icon" aria-hidden="true">💳</span><div><h3>CARDS</h3><p>Pay with a debit or credit card</p></div></header>
       <button type="button" className={`deposit-method-row deposit-choice ${paymentMethod === "CARD" ? "selected" : ""}`} onClick={() => setPaymentMethod("CARD")} aria-pressed={paymentMethod === "CARD"}><span className="deposit-flag" aria-hidden="true">💳</span><span className="deposit-method-copy"><strong>Visa / Mastercard</strong><small>Card deposit via agent assistance</small></span><span className="deposit-chevron" aria-hidden="true">›</span></button>
-      <p className="deposit-method-note">Card payments are processed with agent assistance. You'll receive instructions after creating your request.</p>
+      <p className="deposit-method-note">Card payments are processed with agent assistance. You&apos;ll receive instructions after creating your request.</p>
     </section>
 
     <div className="deposit-columns">

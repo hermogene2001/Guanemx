@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
       ? await prisma.cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } })
       : null;
     if (parsed.data.paymentMethod === "CRYPTO" && !cryptoWallet) return NextResponse.json({ error: "That crypto wallet is unavailable. Choose another wallet." }, { status: 400 });
-    const isManualMethod = ["AGENT", "BANK_TRANSFER", "MOBILE_MONEY", "ECASH", "CARD"].includes(parsed.data.paymentMethod);
     const agentId = agents[randomInt(agents.length)].id;
     const result = await prisma.$transaction(async (tx) => {
       const recharge = await tx.rechargeRequest.create({ data: {
