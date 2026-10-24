@@ -97,7 +97,7 @@ export default function RechargePanel({ rate, minimumAmount }: { rate: string; m
       <header className="deposit-method-heading"><span className="deposit-method-icon" aria-hidden="true">₿</span><div><h3>CRYPTOCURRENCY</h3><p>Choose from Tether, Tron, Bitcoin, Ethereum, or Binance Pay</p></div></header>
       <div className="deposit-wallet-options">
         {CRYPTO_OPTIONS.map((opt) => (
-          <button key={opt.key} type="button" className={`deposit-wallet-option ${paymentMethod === "CRYPTO" && selectedCryptoKey === opt.key ? "selected" : ""}`} onClick={() => { setPaymentMethod("CRYPTO"); setSelectedCryptoKey(opt.key); const w = wallets.find(x => (x.name.toUpperCase().includes(opt.name.split(" ")[0].toUpperCase()) || x.network.toUpperCase() === opt.network.toUpperCase()) && x.enabled); if (w) setCryptoWalletId(w.id); }} aria-pressed={paymentMethod === "CRYPTO" && selectedCryptoKey === opt.key}>
+          <button key={opt.key} type="button" className={`deposit-wallet-option ${paymentMethod === "CRYPTO" && selectedCryptoKey === opt.key ? "selected" : ""}`} onClick={() => { setPaymentMethod("CRYPTO"); setSelectedCryptoKey(opt.key); const w = wallets.find(x => (x.name.toUpperCase().includes(opt.name.split(" ")[0].toUpperCase()) || x.network.toUpperCase() === opt.network.toUpperCase())); if (w) setCryptoWalletId(w.id); }} aria-pressed={paymentMethod === "CRYPTO" && selectedCryptoKey === opt.key}>
             <span className="deposit-wallet-symbol">{opt.icon}</span>
             <span className="deposit-wallet-name"><strong>{opt.name}</strong><small>{opt.network}</small></span>
             <span className="deposit-chevron" aria-hidden="true">›</span>
