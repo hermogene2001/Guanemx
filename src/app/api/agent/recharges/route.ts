@@ -10,5 +10,5 @@ export async function GET() {
     orderBy: { createdAt: "asc" }, take: 100,
     include: { user: { select: { name: true, email: true, phone: true } } },
   });
-  return NextResponse.json({ requests: requests.map((item) => ({ id: item.id, amount: item.amount.toFixed(0), currency: item.currency, createdAt: item.createdAt.toISOString(), client: item.user })) });
+  return NextResponse.json({ requests: requests.map((item) => ({ id: item.id, amount: item.amount.toFixed(0), currency: item.currency, createdAt: item.createdAt.toISOString(), paymentMethod: item.paymentMethod, cryptoName: item.cryptoName, cryptoNetwork: item.cryptoNetwork, cryptoAddress: item.cryptoAddress, client: item.user })) });
 }

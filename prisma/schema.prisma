@@ -357,6 +357,10 @@ model RechargeRequest {
   assignedAgent   User           @relation("RechargeAssignee", fields: [assignedAgentId], references: [id], onDelete: Restrict)
   amount          Decimal        @db.Decimal(18, 2)
   currency        String         @default("USD") @db.VarChar(3)
+  paymentMethod   String         @default("AGENT") @db.VarChar(20)
+  cryptoName      String?        @db.VarChar(40)
+  cryptoNetwork   String?        @db.VarChar(60)
+  cryptoAddress   String?        @db.VarChar(200)
   status          RechargeStatus @default(PENDING)
   transactionId   String?        @unique
   transaction     Transaction?   @relation(fields: [transactionId], references: [id], onDelete: Restrict)
@@ -371,6 +375,21 @@ model RechargeRequest {
   @@index([userId, createdAt])
   @@index([assignedAgentId, status, createdAt])
   @@map("recharge_requests")
+}
+
+/// Admin-configured wallet destinations. Requests store a snapshot so changing
+/// a wallet later does not alter payment instructions on existing deposits.
+model CryptoWallet {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(40)
+  network   String   @db.VarChar(60)
+  address   String   @db.VarChar(200)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, name])
+  @@map("crypto_wallets")
 }
 
 model PayoutDestination {

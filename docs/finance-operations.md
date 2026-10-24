@@ -8,7 +8,7 @@ Clients select an active robot plan from the marketplace and pay its displayed U
 
 ## Recharge
 
-Recharge requests are manual. The app chooses an active `AGENT` account that has a phone number, assigns the pending request to that agent, and shows the client the agent's contact details. Creating a request does not change any wallet balance. An assigned agent confirms receipt from `/agent/requests`; confirmation credits the client's Main Balance and writes the recharge transaction and wallet-ledger entry in one database transaction. Rejection does not credit a balance.
+Recharge requests are manually confirmed. The app chooses an active `AGENT` account that has a phone number, assigns the pending request to that agent, and shows the client the agent's contact details. Clients can use an agent-assisted transfer or select an enabled cryptocurrency destination configured in admin **Platform settings**. A crypto request snapshots the currency, network, and address, so later wallet edits do not change existing payment instructions. Creating a request does not change any wallet balance, and the app does not automatically verify blockchain transfers. An assigned agent confirms receipt from `/agent/requests`; confirmation credits the client's Main Balance and writes the recharge transaction and wallet-ledger entry in one database transaction. Rejection does not credit a balance.
 
 ## Withdrawals
 

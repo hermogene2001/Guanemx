@@ -12,6 +12,10 @@ type Recharge = {
   amount: string;
   currency: string;
   createdAt: string;
+  paymentMethod: string;
+  cryptoName: string | null;
+  cryptoNetwork: string | null;
+  cryptoAddress: string | null;
   client: Client;
 };
 
@@ -165,6 +169,7 @@ function RechargeCard({
           <span>{item.client.name}</span>
           <small>{item.client.email}</small>
           {item.client.phone && <small>{item.client.phone}</small>}
+          {item.paymentMethod === "CRYPTO" && <small className="agent-crypto-destination">{item.cryptoName} · {item.cryptoNetwork}<br />{item.cryptoAddress}</small>}
         </div>
         <time className="agent-request-time" dateTime={item.createdAt}>
           {relativeDate(item.createdAt)} · {new Date(item.createdAt).toLocaleString()}
