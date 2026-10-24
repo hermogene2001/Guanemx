@@ -10,5 +10,5 @@ export default async function RechargePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=%2Faccount%2Frecharge");
   const settings = await getPlatformSettings();
-  return <AccountFrame user={user} activeHref="/account/recharge"><header className="account-header"><div><span className="label">MAIN BALANCE</span><h1>Recharge</h1><p>Request a manual recharge. Amounts are in US dollars; the Rwandan-franc equivalent is shown at the current rate.</p></div></header><RechargePanel rate={settings.usdToRwfRate.toString()} minimumAmount={settings.minimumDepositAmount.toFixed(0)} /></AccountFrame>;
+  return <AccountFrame user={user} activeHref="/account/recharge"><header className="account-header"><div><span className="label">MAIN BALANCE</span><h1>Deposit Funds</h1><p>Choose your preferred payment method. Deposits are confirmed by an assigned agent.</p></div></header><RechargePanel rate={settings.usdToRwfRate.toString()} minimumAmount={settings.minimumDepositAmount.toFixed(0)} /></AccountFrame>;
 }
