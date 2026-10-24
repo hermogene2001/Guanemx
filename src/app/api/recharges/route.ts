@@ -8,7 +8,13 @@ import { recordAudit } from "@/lib/finance";
 import { CURRENCY } from "@/lib/money";
 import { getPlatformSettings } from "@/lib/settings";
 
-const rechargeSchema = z.object({ amount: z.number().int().min(1).max(3_000_000) });
+const rechargeSchema = z.object({ 
+  amount: z.number().int().min(1).max(3_000_000), 
+  paymentMethod: z.enum(["AGENT", "CRYPTO", "BANK_TRANSFER", "MOBILE_MONEY", "ECASH", "CARD"]).default("AGENT"), 
+  cryptoWalletId: z.string().min(1).optional(),
+  methodProvider: z.string().optional(),
+  methodNetwork: z.string().optional(),
+});
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -17,8 +23,10 @@ export async function GET() {
     where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 50,
     include: { assignedAgent: { select: { name: true, phone: true } }, transaction: { select: { reference: true } } },
   });
-  return NextResponse.json({ recharges: recharges.map((item) => ({
+  const cryptoWallets = await prisma.cryptoWallet.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
+  return NextResponse.json({ cryptoWallets, recharges: recharges.map((item) => ({
     id: item.id, amount: item.amount.toFixed(0), currency: item.currency, status: item.status,
+    paymentMethod: item.paymentMethod, cryptoName: item.cryptoName, cryptoNetwork: item.cryptoNetwork, cryptoAddress: item.cryptoAddress,
     createdAt: item.createdAt.toISOString(), agent: { name: item.assignedAgent.name, phone: item.assignedAgent.phone },
     reference: item.transaction?.reference ?? null,
   })) });
@@ -37,7 +45,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Enter a whole-dollar amount no greater than $3,000,000." }, { status: 400 });
 
   const existing = await prisma.rechargeRequest.findUnique({ where: { idempotencyKey }, include: { assignedAgent: { select: { name: true, phone: true } } } });
-  if (existing) return existing.userId === user.id ? NextResponse.json({ id: existing.id, status: existing.status, amount: existing.amount.toFixed(0), agent: existing.assignedAgent }) : NextResponse.json({ error: "Request key already used." }, { status: 409 });
+  if (existing) return existing.userId === user.id ? NextResponse.json({ id: existing.id, status: existing.status, amount: existing.amount.toFixed(0), paymentMethod: existing.paymentMethod, cryptoName: existing.cryptoName, cryptoNetwork: existing.cryptoNetwork, cryptoAddress: existing.cryptoAddress, agent: existing.assignedAgent }) : NextResponse.json({ error: "Request key already used." }, { status: 409 });
 
   try {
     const settings = await getPlatformSettings();
@@ -46,19 +54,26 @@ export async function POST(request: NextRequest) {
     }
     const agents = await prisma.user.findMany({ where: { role: "AGENT", status: "ACTIVE", phone: { not: null } }, select: { id: true } });
     if (!agents.length) return NextResponse.json({ error: "Recharge is temporarily unavailable. No active payment agents are configured." }, { status: 503 });
+    if (parsed.data.paymentMethod === "CRYPTO" && !parsed.data.cryptoWalletId) return NextResponse.json({ error: "Choose a crypto wallet." }, { status: 400 });
+    const cryptoWallet = parsed.data.paymentMethod === "CRYPTO"
+      ? await prisma.cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } })
+      : null;
+    if (parsed.data.paymentMethod === "CRYPTO" && !cryptoWallet) return NextResponse.json({ error: "That crypto wallet is unavailable. Choose another wallet." }, { status: 400 });
+    const isManualMethod = ["AGENT", "BANK_TRANSFER", "MOBILE_MONEY", "ECASH", "CARD"].includes(parsed.data.paymentMethod);
     const agentId = agents[randomInt(agents.length)].id;
     const result = await prisma.$transaction(async (tx) => {
       const recharge = await tx.rechargeRequest.create({ data: {
         userId: user.id, assignedAgentId: agentId, amount: new Prisma.Decimal(parsed.data.amount), currency: CURRENCY, idempotencyKey,
+        paymentMethod: parsed.data.paymentMethod, cryptoName: cryptoWallet?.name || parsed.data.methodProvider || null, cryptoNetwork: cryptoWallet?.network || parsed.data.methodNetwork || null, cryptoAddress: cryptoWallet?.address || null,
       }, include: { assignedAgent: { select: { name: true, phone: true } } } });
-      await recordAudit(tx, request, user.id, "recharge.requested", "RechargeRequest", recharge.id, { amount: parsed.data.amount });
+      await recordAudit(tx, request, user.id, "recharge.requested", "RechargeRequest", recharge.id, { amount: parsed.data.amount, paymentMethod: recharge.paymentMethod, cryptoName: recharge.cryptoName, cryptoNetwork: recharge.cryptoNetwork });
       return recharge;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    return NextResponse.json({ id: result.id, amount: result.amount.toFixed(0), status: result.status, agent: result.assignedAgent }, { status: 201 });
+    return NextResponse.json({ id: result.id, amount: result.amount.toFixed(0), status: result.status, paymentMethod: result.paymentMethod, cryptoName: result.cryptoName, cryptoNetwork: result.cryptoNetwork, cryptoAddress: result.cryptoAddress, agent: result.assignedAgent }, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       const duplicate = await prisma.rechargeRequest.findUnique({ where: { idempotencyKey }, include: { assignedAgent: { select: { name: true, phone: true } } } });
-      if (duplicate?.userId === user.id) return NextResponse.json({ id: duplicate.id, status: duplicate.status, amount: duplicate.amount.toFixed(0), agent: duplicate.assignedAgent });
+      if (duplicate?.userId === user.id) return NextResponse.json({ id: duplicate.id, status: duplicate.status, amount: duplicate.amount.toFixed(0), paymentMethod: duplicate.paymentMethod, cryptoName: duplicate.cryptoName, cryptoNetwork: duplicate.cryptoNetwork, cryptoAddress: duplicate.cryptoAddress, agent: duplicate.assignedAgent });
     }
     console.error(JSON.stringify({ event: "recharge_request_failed", message: error instanceof Error ? error.message : "unknown error" }));
     return NextResponse.json({ error: "Recharge request could not be created. Please try again." }, { status: 500 });
