@@ -50,28 +50,44 @@ export async function GET() {
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: any[] = [];
-    const client = await pool.connect();
     try {
+      const client = await pool.connect();
       try {
-        const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-        wallets = res.rows;
-      } catch {
         try {
-          const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+          const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
           wallets = res.rows;
         } catch {
-          await ensureTable();
           try {
-            const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-            wallets = res.rows;
-          } catch {
             const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
             wallets = res.rows;
+          } catch {
+            try { await ensureTable(); } catch {}
+            try {
+              const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
+              wallets = res.rows;
+            } catch {
+              const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+              wallets = res.rows;
+            }
+          }
+        }
+      } finally {
+        client.release();
+      }
+    } catch {
+      try {
+        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
+      } catch {
+        try {
+          wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+        } catch {
+          try {
+            wallets = await (prisma as any).cryptoWallet.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] });
+          } catch {
+            wallets = [];
           }
         }
       }
-    } finally {
-      client.release();
     }
     return NextResponse.json({ wallets: (wallets || []).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
   } catch (error: unknown) {
