@@ -51,19 +51,21 @@ export async function POST(request: NextRequest) {
     const id = randomUUID();
     const enabled = parsed.data.enabled ?? true;
     const now = new Date();
-    try {
-      await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)`);
-    } catch {}
-    try {
-      await prisma.$executeRawUnsafe(`INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
-    } catch (e: unknown) {
-      try {
-        await prisma.$executeRawUnsafe(`INSERT INTO public.crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
-      } catch {
-        console.error("crypto_wallets_post_failed_ins", e instanceof Error ? e.message : String(e));
-        throw e;
-      }
+    const createSql = [
+      `CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)`,
+      `CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)`,
+    ];
+    for (const s of createSql) { try { await prisma.$executeRawUnsafe(s); } catch {} }
+    const inserts = [
+      `INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      `INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      `INSERT INTO public.crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    ];
+    let inserted = false;
+    for (const s of inserts) {
+      try { await prisma.$executeRawUnsafe(s, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now); inserted = true; break; } catch {}
     }
+    if (!inserted) throw new Error("insert failed");
     const wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
     await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ wallet }, { status: 201 });

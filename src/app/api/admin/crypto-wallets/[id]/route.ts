@@ -22,8 +22,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
     const now = new Date();
     const queries = [
-      `UPDATE "crypto_wallets" SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6`,
       `UPDATE crypto_wallets SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6`,
+      `UPDATE "crypto_wallets" SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6`,
+      `UPDATE public.crypto_wallets SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6`,
       `UPDATE "CryptoWallet" SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6`,
     ];
     let done = false;
@@ -46,11 +47,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     const { id } = await params;
     let rows: Array<{ name: string; network: string }> = [];
-    const q1 = [`SELECT name, network FROM "crypto_wallets" WHERE id=$1`, `SELECT name, network FROM crypto_wallets WHERE id=$1`, `SELECT name, network FROM "CryptoWallet" WHERE id=$1`];
+    const q1 = [`SELECT name, network FROM crypto_wallets WHERE id=$1`, `SELECT name, network FROM "crypto_wallets" WHERE id=$1`, `SELECT name, network FROM public.crypto_wallets WHERE id=$1`, `SELECT name, network FROM "CryptoWallet" WHERE id=$1`];
     for (const q of q1) { try { rows = await prisma.$queryRawUnsafe(q, id) as Array<{ name: string; network: string }>; if (rows.length) break; } catch {} }
     if (!rows.length) throw new Error("not found");
     const wallet = rows[0];
-    const dq = [`DELETE FROM "crypto_wallets" WHERE id=$1`, `DELETE FROM crypto_wallets WHERE id=$1`, `DELETE FROM "CryptoWallet" WHERE id=$1`];
+    const dq = [`DELETE FROM crypto_wallets WHERE id=$1`, `DELETE FROM "crypto_wallets" WHERE id=$1`, `DELETE FROM public.crypto_wallets WHERE id=$1`, `DELETE FROM "CryptoWallet" WHERE id=$1`];
     for (const q of dq) { try { await prisma.$executeRawUnsafe(q, id); break; } catch {} }
     await recordAudit(prisma, request, admin.id, "crypto_wallet.deleted", "CryptoWallet", id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ ok: true });
