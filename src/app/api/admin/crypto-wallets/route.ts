@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { recordAudit } from "@/lib/finance";
 import { prisma } from "@/lib/prisma";
+import { Pool } from "pg";
 
 export const dynamic = "force-dynamic";
 const walletSchema = z.object({
@@ -13,26 +14,46 @@ const walletSchema = z.object({
   enabled: z.boolean().default(true),
 });
 
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+async function queryWithPg(sql: string, params: any[] = []) {
+  try {
+    const client = await pool.connect();
+    try {
+      const res = await client.query(sql, params);
+      return res.rows;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    throw e;
+  }
+}
+
 export async function GET() {
   try {
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
-    let wallets: unknown[] = [];
-    const tries = [
-      `SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`,
-      `SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`,
-    ];
-    for (const q of tries) {
-      try { wallets = await prisma.$queryRawUnsafe(q); break; } catch {}
-    }
-    if (!wallets || wallets.length === 0) {
+    let wallets: any[] = [];
+    try {
+      wallets = await queryWithPg('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC');
+    } catch {
       try {
-        await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)`);
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS crypto_wallets_enabled_name_idx ON crypto_wallets (enabled, name)`);
-        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-      } catch {}
+        wallets = await queryWithPg('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC');
+      } catch {
+        try {
+          const client = await pool.connect();
+          try {
+            await client.query('CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)');
+            const r = await client.query('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC');
+            wallets = r.rows;
+          } finally {
+            client.release();
+          }
+        } catch {}
+      }
     }
-    return NextResponse.json({ wallets: (wallets as Array<{ id: string; name: string; network: string; address: string; enabled: boolean }>).map((w) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
+    return NextResponse.json({ wallets: (wallets || []).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("crypto_wallets_get_failed", msg);
@@ -51,21 +72,26 @@ export async function POST(request: NextRequest) {
     const id = randomUUID();
     const enabled = parsed.data.enabled ?? true;
     const now = new Date();
-    const createSql = [
-      `CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)`,
-      `CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)`,
-    ];
-    for (const s of createSql) { try { await prisma.$executeRawUnsafe(s); } catch {} }
-    const inserts = [
-      `INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      `INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      `INSERT INTO public.crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-    ];
-    let inserted = false;
-    for (const s of inserts) {
-      try { await prisma.$executeRawUnsafe(s, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now); inserted = true; break; } catch {}
+    const client = await pool.connect();
+    try {
+      try {
+        await client.query('CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)');
+      } catch {}
+      try {
+        await client.query('CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)');
+      } catch {}
+      try {
+        await client.query('INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
+      } catch {
+        try {
+          await client.query('INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
+        } catch {
+          throw new Error("insert failed");
+        }
+      }
+    } finally {
+      client.release();
     }
-    if (!inserted) throw new Error("insert failed");
     const wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
     await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ wallet }, { status: 201 });
