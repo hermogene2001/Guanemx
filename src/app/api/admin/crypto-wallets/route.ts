@@ -93,7 +93,7 @@ export async function GET() {
     return NextResponse.json({ wallets: (wallets || []).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: w.enabled === true || w.enabled === "t" || w.enabled === 1 })) });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error("crypto_wallets_get_failed", msg);
+    console.error("crypto_wallets_get_failed", JSON.stringify({ msg }));
     return NextResponse.json({ error: "Unable to load crypto wallets." }, { status: 500 });
   }
 }
@@ -120,10 +120,22 @@ export async function POST(request: NextRequest) {
       }
     } catch {}
     if (!wallet) {
-      try { await prisma.$executeRawUnsafe('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now); wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled }; } catch {}
+      try {
+        const res = await prisma.$queryRawUnsafe('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
+        if (res) wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
+      } catch {}
     }
     if (!wallet) {
-      try { await prisma.$executeRawUnsafe('INSERT INTO crypto_wallets (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now); wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled }; } catch {}
+      try {
+        await prisma.$executeRawUnsafe('INSERT INTO crypto_wallets (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
+        wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
+      } catch {}
+    }
+    if (!wallet) {
+      try {
+        await prisma.$executeRawUnsafe('INSERT INTO public."crypto_wallets" (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
+        wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
+      } catch {}
     }
     if (!wallet) {
       try {
@@ -131,12 +143,18 @@ export async function POST(request: NextRequest) {
         const client = await pool.connect();
         try {
           try { await ensureTable(); } catch {}
-          try { await client.query('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]); } catch {
-            try { await client.query('INSERT INTO crypto_wallets (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]); } catch {
-              await client.query('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,createdAt,updatedAt) VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
-            }
+          let inserted = false;
+          try { await client.query('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]); inserted = true; } catch {}
+          if (!inserted) {
+            try { await client.query('INSERT INTO crypto_wallets (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]); inserted = true; } catch {}
           }
-          wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
+          if (!inserted) {
+            try { await client.query('INSERT INTO public."crypto_wallets" (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]); inserted = true; } catch {}
+          }
+          if (!inserted) {
+            try { await client.query('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,createdAt,updatedAt) VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]); inserted = true; } catch {}
+          }
+          if (inserted) wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
         } finally { client.release(); }
       } catch (e) {
         console.error("crypto_wallets_post_failed_inner", e instanceof Error ? e.message : e);
