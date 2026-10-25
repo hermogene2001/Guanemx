@@ -32,11 +32,8 @@ export async function POST(request: NextRequest) {
     try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
     const parsed = walletSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Enter a name, network, and valid wallet address." }, { status: 400 });
-    const wallet = await prisma.$transaction(async (tx) => {
-      const created = await tx.cryptoWallet.create({ data: parsed.data });
-      await recordAudit(tx, request, admin.id, "crypto_wallet.created", "CryptoWallet", created.id, { name: created.name, network: created.network });
-      return created;
-    });
+    const wallet = await prisma.cryptoWallet.create({ data: parsed.data });
+    await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ wallet }, { status: 201 });
   } catch (error) {
     console.error(JSON.stringify({ event: "crypto_wallets_post_failed", message: error instanceof Error ? error.message : "unknown" }));
