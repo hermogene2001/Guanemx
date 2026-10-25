@@ -1,0 +1,1 @@
+﻿import { PrismaClient } from '@prisma/client';const p = new PrismaClient();const w = await p.cryptoWallet.create({ data: { name: 'Tether (USDT)', network: 'TRON (TRC20)', address: '0x70C796F0E147A65B1B2F19e4A40e74c4f8B654CDC', enabled: true } });console.log(w.id);await p.();
