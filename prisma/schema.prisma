@@ -369,7 +369,7 @@ model PlatformSetting {
   @@map("platform_settings")
 }
 
-model crypto_wallets {
+model CryptoWallet {
   id        String   @id
   name      String   @db.VarChar(40)
   network   String   @db.VarChar(60)
@@ -379,6 +379,7 @@ model crypto_wallets {
   updatedAt DateTime
 
   @@index([enabled, name])
+  @@map("crypto_wallets")
 }
 
 enum UserRole {
