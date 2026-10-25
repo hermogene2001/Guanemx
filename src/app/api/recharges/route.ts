@@ -23,7 +23,8 @@ export async function GET() {
     where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 50,
     include: { assignedAgent: { select: { name: true, phone: true } }, transaction: { select: { reference: true } } },
   });
-  const cryptoWallets = await prisma.cryptoWallet.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
+  let cryptoWallets: any[] = [];
+  try { cryptoWallets = await (prisma as any).crypto_wallets.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } }); } catch { try { cryptoWallets = await (prisma as any).cryptoWallet.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } }); } catch { cryptoWallets = []; } }
   return NextResponse.json({ cryptoWallets, recharges: recharges.map((item) => ({
     id: item.id, amount: item.amount.toFixed(0), currency: item.currency, status: item.status,
     paymentMethod: item.paymentMethod, cryptoName: item.cryptoName, cryptoNetwork: item.cryptoNetwork, cryptoAddress: item.cryptoAddress,
@@ -55,9 +56,10 @@ export async function POST(request: NextRequest) {
     const agents = await prisma.user.findMany({ where: { role: "AGENT", status: "ACTIVE", phone: { not: null } }, select: { id: true } });
     if (!agents.length) return NextResponse.json({ error: "Recharge is temporarily unavailable. No active payment agents are configured." }, { status: 503 });
     if (parsed.data.paymentMethod === "CRYPTO" && !parsed.data.cryptoWalletId) return NextResponse.json({ error: "Choose a crypto wallet." }, { status: 400 });
-    const cryptoWallet = parsed.data.paymentMethod === "CRYPTO"
-      ? await prisma.cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } })
-      : null;
+    let cryptoWallet: any = null;
+    if (parsed.data.paymentMethod === "CRYPTO") {
+      try { cryptoWallet = await (prisma as any).crypto_wallets.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } }); } catch { try { cryptoWallet = await (prisma as any).cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } }); } catch { cryptoWallet = null; } }
+    }
     if (parsed.data.paymentMethod === "CRYPTO" && !cryptoWallet) return NextResponse.json({ error: "That crypto wallet is unavailable. Choose another wallet." }, { status: 400 });
     const agentId = agents[randomInt(agents.length)].id;
     const result = await prisma.$transaction(async (tx) => {
