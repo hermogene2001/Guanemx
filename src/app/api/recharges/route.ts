@@ -29,7 +29,7 @@ export async function GET() {
     cryptoWallets = rows as Array<{ id: string; name: string; network: string; address: string }>;
   } catch {
     try {
-      const p2 = prisma as unknown as { cryptoWallet?: { findMany: (args: unknown) => Promise<Array<{ id: string; name: string; network: string; address: string }>>; crypto_wallets?: { findMany: (args: unknown) => Promise<Array<{ id: string; name: string; network: string; address: string }>> } };
+      const p2: any = prisma;
       if (p2.cryptoWallet) {
         const rows = await p2.cryptoWallet.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
         cryptoWallets = rows;
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         cryptoWallet = r || null;
       } catch {
         try {
-          const p2 = prisma as unknown as { cryptoWallet?: { findFirst: (args: unknown) => Promise<{ name: string; network: string; address: string } | null>; crypto_wallets?: { findFirst: (args: unknown) => Promise<{ name: string; network: string; address: string } | null> } };
+          const p2: any = prisma;
           if (p2.cryptoWallet) {
             cryptoWallet = await p2.cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } });
           } else if (p2.crypto_wallets) {
