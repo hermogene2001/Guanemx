@@ -8,9 +8,13 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-const globalForPg = globalThis as unknown as { _pgPool?: Pool };
-const pool = globalForPg._pgPool ?? new Pool({ connectionString: process.env.DATABASE_URL });
-if (process.env.NODE_ENV !== "production") globalForPg._pgPool = pool;
+function getPool() {
+  const globalForPg = globalThis as unknown as { _pgPool?: Pool };
+  if (!globalForPg._pgPool) {
+    globalForPg._pgPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+  }
+  return globalForPg._pgPool;
+}
 
 const walletSchema = z.object({
   name: z.string().trim().min(2).max(40),
@@ -20,6 +24,7 @@ const walletSchema = z.object({
 });
 
 async function ensureTable() {
+  const pool = getPool();
   const client = await pool.connect();
   try {
     await client.query(`CREATE TABLE IF NOT EXISTS "crypto_wallets" (
@@ -51,6 +56,7 @@ export async function GET() {
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: any[] = [];
     try {
+      const pool = getPool();
       const client = await pool.connect();
       try {
         try {
@@ -110,6 +116,7 @@ export async function POST(request: NextRequest) {
     const enabled = parsed.data.enabled ?? true;
     const now = new Date();
     let wallet: any = null;
+    const pool = getPool();
     const client = await pool.connect();
     try {
       await ensureTable();
