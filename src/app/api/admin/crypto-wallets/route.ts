@@ -17,7 +17,16 @@ export async function GET() {
   try {
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
-    const wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled, "createdAt", "updatedAt" FROM crypto_wallets ORDER BY name ASC, network ASC`);
+    let wallets: any[] = [];
+    try {
+      wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
+    } catch {
+      try {
+        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+      } catch {
+        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "CryptoWallet" ORDER BY name ASC, network ASC`);
+      }
+    }
     return NextResponse.json({ wallets: (wallets as any[]).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: w.enabled })) });
   } catch (error: any) {
     console.error("crypto_wallets_get_failed", error?.message);
