@@ -17,7 +17,7 @@ export async function GET() {
   try {
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
-    let wallets: any[] = [];
+    let wallets: unknown[] = [];
     try {
       wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
     } catch {
@@ -25,11 +25,11 @@ export async function GET() {
         await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)`);
         await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS crypto_wallets_enabled_name_idx ON crypto_wallets (enabled, name)`);
         wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-      } catch (e: any) {
+      } catch (e: unknown) {
         throw e;
       }
     }
-    return NextResponse.json({ wallets: (wallets as any[]).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
+    return NextResponse.json({ wallets: (wallets as Array<{ id: string; name: string; network: string; address: string; enabled: boolean }>).map((w) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
   } catch (error: any) {
     console.error("crypto_wallets_get_failed", error?.message, error?.code);
     return NextResponse.json({ error: "Unable to load crypto wallets." }, { status: 500 });
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
     await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ wallet }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(JSON.stringify({ event: "crypto_wallets_post_failed", message: error instanceof Error ? error.message : "unknown" }));
     return NextResponse.json({ error: "Wallet could not be saved." }, { status: 500 });
   }

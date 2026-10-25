@@ -29,8 +29,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     let done = false;
     for (const q of queries) {
       try {
-        const res: any = await prisma.$executeRawUnsafe(q, parsed.data.name, parsed.data.network, parsed.data.address, parsed.data.enabled, now, id);
-        if (res && res > 0) { done = true; break; }
+        const res = await prisma.$executeRawUnsafe(q, parsed.data.name, parsed.data.network, parsed.data.address, parsed.data.enabled, now, id);
+        if (typeof res === "number" && res > 0) { done = true; break; }
+        if (res) { done = true; break; }
       } catch {}
     }
     if (!done) throw new Error("not found");
@@ -44,9 +45,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     const { id } = await params;
-    let rows: any[] = [];
+    let rows: Array<{ name: string; network: string }> = [];
     const q1 = [`SELECT name, network FROM "crypto_wallets" WHERE id=$1`, `SELECT name, network FROM crypto_wallets WHERE id=$1`, `SELECT name, network FROM "CryptoWallet" WHERE id=$1`];
-    for (const q of q1) { try { rows = await prisma.$queryRawUnsafe(q, id); if (rows.length) break; } catch {} }
+    for (const q of q1) { try { rows = await prisma.$queryRawUnsafe(q, id) as Array<{ name: string; network: string }>; if (rows.length) break; } catch {} }
     if (!rows.length) throw new Error("not found");
     const wallet = rows[0];
     const dq = [`DELETE FROM "crypto_wallets" WHERE id=$1`, `DELETE FROM crypto_wallets WHERE id=$1`, `DELETE FROM "CryptoWallet" WHERE id=$1`];

@@ -23,8 +23,25 @@ export async function GET() {
     where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 50,
     include: { assignedAgent: { select: { name: true, phone: true } }, transaction: { select: { reference: true } } },
   });
-  let cryptoWallets: any[] = [];
-  try { cryptoWallets = await (prisma as any).crypto_wallets.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } }); } catch { try { cryptoWallets = await (prisma as any).cryptoWallet.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } }); } catch { cryptoWallets = []; } }
+  let cryptoWallets: Array<{ id: string; name: string; network: string; address: string }> = [];
+  try {
+    const rows = await prisma.$queryRawUnsafe(`SELECT id, name, network, address FROM crypto_wallets WHERE enabled = true ORDER BY name ASC, network ASC`);
+    cryptoWallets = rows as Array<{ id: string; name: string; network: string; address: string }>;
+  } catch {
+    try {
+      const rows = await prisma.cryptoWallet.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
+      cryptoWallets = rows;
+    } catch {
+      try {
+        const p2 = prisma as unknown as { crypto_wallets?: { findMany: (args: unknown) => Promise<Array<{ id: string; name: string; network: string; address: string }>> } };
+        if (p2.crypto_wallets) {
+          cryptoWallets = await p2.crypto_wallets.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
+        }
+      } catch {
+        cryptoWallets = [];
+      }
+    }
+  }
   return NextResponse.json({ cryptoWallets, recharges: recharges.map((item) => ({
     id: item.id, amount: item.amount.toFixed(0), currency: item.currency, status: item.status,
     paymentMethod: item.paymentMethod, cryptoName: item.cryptoName, cryptoNetwork: item.cryptoNetwork, cryptoAddress: item.cryptoAddress,
@@ -56,9 +73,26 @@ export async function POST(request: NextRequest) {
     const agents = await prisma.user.findMany({ where: { role: "AGENT", status: "ACTIVE", phone: { not: null } }, select: { id: true } });
     if (!agents.length) return NextResponse.json({ error: "Recharge is temporarily unavailable. No active payment agents are configured." }, { status: 503 });
     if (parsed.data.paymentMethod === "CRYPTO" && !parsed.data.cryptoWalletId) return NextResponse.json({ error: "Choose a crypto wallet." }, { status: 400 });
-    let cryptoWallet: any = null;
+    let cryptoWallet: { name: string; network: string; address: string } | null = null;
     if (parsed.data.paymentMethod === "CRYPTO") {
-      try { cryptoWallet = await (prisma as any).crypto_wallets.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } }); } catch { try { cryptoWallet = await (prisma as any).cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } }); } catch { cryptoWallet = null; } }
+      try {
+        const rows = await prisma.$queryRawUnsafe(`SELECT name, network, address FROM crypto_wallets WHERE id = $1 AND enabled = true`, parsed.data.cryptoWalletId);
+        const r = (rows as Array<{ name: string; network: string; address: string }>)[0];
+        cryptoWallet = r || null;
+      } catch {
+        try {
+          cryptoWallet = await prisma.cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } });
+        } catch {
+          try {
+            const p2 = prisma as unknown as { crypto_wallets?: { findFirst: (args: unknown) => Promise<{ name: string; network: string; address: string } | null> } };
+            if (p2.crypto_wallets) {
+              cryptoWallet = await p2.crypto_wallets.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } });
+            }
+          } catch {
+            cryptoWallet = null;
+          }
+        }
+      }
     }
     if (parsed.data.paymentMethod === "CRYPTO" && !cryptoWallet) return NextResponse.json({ error: "That crypto wallet is unavailable. Choose another wallet." }, { status: 400 });
     const agentId = agents[randomInt(agents.length)].id;
