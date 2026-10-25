@@ -30,12 +30,18 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     try {
       let done = false;
       try {
-        const res = await client.query('UPDATE crypto_wallets SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6', [parsed.data.name, parsed.data.network, parsed.data.address, parsed.data.enabled, now, id]);
+        const res = await client.query('UPDATE "crypto_wallets" SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6', [parsed.data.name, parsed.data.network, parsed.data.address, parsed.data.enabled, now, id]);
         if (res.rowCount && res.rowCount > 0) done = true;
       } catch {}
       if (!done) {
         try {
-          const res = await client.query('UPDATE "crypto_wallets" SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6', [parsed.data.name, parsed.data.network, parsed.data.address, parsed.data.enabled, now, id]);
+          const res = await client.query('UPDATE crypto_wallets SET name=$1, network=$2, address=$3, enabled=$4, "updatedAt"=$5 WHERE id=$6', [parsed.data.name, parsed.data.network, parsed.data.address, parsed.data.enabled, now, id]);
+          if (res.rowCount && res.rowCount > 0) done = true;
+        } catch {}
+      }
+      if (!done) {
+        try {
+          const res = await client.query('UPDATE "crypto_wallets" SET name=$1, network=$2, address=$3, enabled=$4, updatedAt=$5 WHERE id=$6', [parsed.data.name, parsed.data.network, parsed.data.address, parsed.data.enabled, now, id]);
           if (res.rowCount && res.rowCount > 0) done = true;
         } catch {}
       }
@@ -57,21 +63,21 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     try {
       let rows: any[] = [];
       try {
-        const r = await client.query('SELECT name, network FROM crypto_wallets WHERE id=$1', [id]);
+        const r = await client.query('SELECT name, network FROM "crypto_wallets" WHERE id=$1', [id]);
         rows = r.rows;
       } catch {
         try {
-          const r = await client.query('SELECT name, network FROM "crypto_wallets" WHERE id=$1', [id]);
+          const r = await client.query('SELECT name, network FROM crypto_wallets WHERE id=$1', [id]);
           rows = r.rows;
         } catch {}
       }
       if (!rows.length) throw new Error("not found");
       const wallet = rows[0];
       try {
-        await client.query('DELETE FROM crypto_wallets WHERE id=$1', [id]);
+        await client.query('DELETE FROM "crypto_wallets" WHERE id=$1', [id]);
       } catch {
         try {
-          await client.query('DELETE FROM "crypto_wallets" WHERE id=$1', [id]);
+          await client.query('DELETE FROM crypto_wallets WHERE id=$1', [id]);
         } catch {}
       }
       await recordAudit(prisma, request, admin.id, "crypto_wallet.deleted", "CryptoWallet", id, { name: wallet.name, network: wallet.network });
