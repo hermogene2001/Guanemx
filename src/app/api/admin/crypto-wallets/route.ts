@@ -22,26 +22,27 @@ export async function GET() {
   try {
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
-    let wallets: any[] = [];
+    const client = await pool.connect();
     try {
-      wallets = await queryWithPg('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC');
-    } catch {
+      let rows: any[] = [];
       try {
-        wallets = await queryWithPg('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC');
+        const r = await client.query('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC');
+        rows = r.rows;
       } catch {
         try {
-          const client = await pool.connect();
-          try {
-            await client.query('CREATE TABLE IF NOT EXISTS crypto_wallets (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)');
-            const r = await client.query('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC');
-            wallets = r.rows;
-          } finally {
-            client.release();
-          }
-        } catch {}
+          const r = await client.query('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC');
+          rows = r.rows;
+        } catch {
+          await client.query('CREATE TABLE IF NOT EXISTS crypto_wallets (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)');
+          await client.query('CREATE INDEX IF NOT EXISTS crypto_wallets_enabled_name_idx ON crypto_wallets (enabled, name)');
+          const r = await client.query('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC');
+          rows = r.rows;
+        }
       }
+      return NextResponse.json({ wallets: (rows || []).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
+    } finally {
+      client.release();
     }
-    return NextResponse.json({ wallets: (wallets || []).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("crypto_wallets_get_failed", msg);
@@ -68,11 +69,7 @@ export async function POST(request: NextRequest) {
       try {
         await client.query('INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
       } catch {
-        try {
-          await client.query('INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
-        } catch {
-          throw new Error("insert failed");
-        }
+        await client.query('INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
       }
     } finally {
       client.release();
