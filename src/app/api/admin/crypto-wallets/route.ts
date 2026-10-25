@@ -11,7 +11,9 @@ export const dynamic = "force-dynamic";
 function getPool() {
   const globalForPg = globalThis as unknown as { _pgPool?: Pool };
   if (!globalForPg._pgPool) {
-    globalForPg._pgPool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
+    const url = process.env.DATABASE_URL || "";
+    const useSsl = /sslmode=require|neon\.tech|vercel/i.test(url);
+    globalForPg._pgPool = new Pool({ connectionString: url, max: 1, ssl: useSsl ? { rejectUnauthorized: false } : undefined });
   }
   return globalForPg._pgPool;
 }
