@@ -24,16 +24,16 @@ export async function GET() {
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: any[] = [];
     try {
-      wallets = await queryWithPg('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC');
+      wallets = await queryWithPg('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC');
     } catch {
       try {
-        wallets = await queryWithPg('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC');
+        wallets = await queryWithPg('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC');
       } catch {
         try {
           const client = await pool.connect();
           try {
-            await client.query('CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)');
-            const r = await client.query('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC');
+            await client.query('CREATE TABLE IF NOT EXISTS crypto_wallets (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)');
+            const r = await client.query('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC');
             wallets = r.rows;
           } finally {
             client.release();
@@ -63,16 +63,13 @@ export async function POST(request: NextRequest) {
     const client = await pool.connect();
     try {
       try {
-        await client.query('CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)');
+        await client.query('CREATE TABLE IF NOT EXISTS crypto_wallets (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)');
       } catch {}
       try {
-        await client.query('CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)');
-      } catch {}
-      try {
-        await client.query('INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
+        await client.query('INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
       } catch {
         try {
-          await client.query('INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
+          await client.query('INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
         } catch {
           throw new Error("insert failed");
         }
