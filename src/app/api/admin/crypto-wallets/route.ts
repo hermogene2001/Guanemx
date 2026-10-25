@@ -58,44 +58,52 @@ export async function GET() {
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: any[] = [];
     try {
-      const pool = getPool();
-      const client = await pool.connect();
-      try {
+      const p: any = prisma as any;
+      if (p.cryptoWallet) {
         try {
-          const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-          wallets = res.rows;
-        } catch {
+          wallets = await p.cryptoWallet.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] });
+        } catch {}
+      }
+      if (!wallets || wallets.length === 0) {
+        try {
+          wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
+        } catch {}
+      }
+      if (!wallets || wallets.length === 0) {
+        try {
+          wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+        } catch {}
+      }
+      if (!wallets || wallets.length === 0) {
+        try {
+          const pool = getPool();
+          const client = await pool.connect();
           try {
-            const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-            wallets = res.rows;
-          } catch {
-            try { await ensureTable(); } catch {}
             try {
               const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
               wallets = res.rows;
             } catch {
-              const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-              wallets = res.rows;
+              try {
+                const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+                wallets = res.rows;
+              } catch {
+                try { await ensureTable(); } catch {}
+                try {
+                  const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
+                  wallets = res.rows;
+                } catch {
+                  const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+                  wallets = res.rows;
+                }
+              }
             }
+          } finally {
+            client.release();
           }
-        }
-      } finally {
-        client.release();
+        } catch {}
       }
-    } catch {
-      try {
-        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-      } catch {
-        try {
-          wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-        } catch {
-          try {
-            wallets = await (prisma as any).cryptoWallet.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] });
-          } catch {
-            wallets = [];
-          }
-        }
-      }
+    } catch (e) {
+      console.error("crypto_wallets_get_inner", e instanceof Error ? e.message : e);
     }
     return NextResponse.json({ wallets: (wallets || []).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
   } catch (error: unknown) {
@@ -118,23 +126,39 @@ export async function POST(request: NextRequest) {
     const enabled = parsed.data.enabled ?? true;
     const now = new Date();
     let wallet: any = null;
-    const pool = getPool();
-    const client = await pool.connect();
     try {
-      await ensureTable();
-      try {
-        await client.query(`INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
-      } catch {
+      const p: any = prisma as any;
+      if (p.cryptoWallet) {
         try {
-          await client.query(`INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
-        } catch {
-          // try without quotes on columns
-          await client.query(`INSERT INTO "crypto_wallets" (id, name, network, address, enabled, createdAt, updatedAt) VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
-        }
+          wallet = await p.cryptoWallet.create({ data: { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled, updatedAt: now } });
+        } catch {}
       }
-      wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
-    } finally {
-      client.release();
+    } catch {}
+    if (!wallet) {
+      try {
+        const pool = getPool();
+        const client = await pool.connect();
+        try {
+          await ensureTable();
+          try {
+            await client.query(`INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
+          } catch {
+            try {
+              await client.query(`INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
+            } catch {
+              await client.query(`INSERT INTO "crypto_wallets" (id, name, network, address, enabled, createdAt, updatedAt) VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
+            }
+          }
+          wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
+        } finally {
+          client.release();
+        }
+      } catch (e) {
+        console.error("crypto_wallets_post_inner", e instanceof Error ? e.message : e);
+        throw e;
+      }
+    } else {
+      wallet = { id: wallet.id, name: wallet.name, network: wallet.network, address: wallet.address, enabled: wallet.enabled };
     }
     await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ wallet }, { status: 201 });
