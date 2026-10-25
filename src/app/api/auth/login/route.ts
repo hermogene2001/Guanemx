@@ -8,7 +8,9 @@ import { prisma } from "@/lib/prisma";
 const loginSchema = z.object({ email: z.string().trim().email().max(254), password: z.string().min(1).max(72).refine((value) => Buffer.byteLength(value, "utf8") <= 72) });
 
 export async function POST(request: NextRequest) {
-  if (!sameOriginRequest(request)) return NextResponse.json({ error: "Request origin could not be verified." }, { status: 403 });
+  try {
+    if (!sameOriginRequest(request)) return NextResponse.json({ error: "Request origin could not be verified." }, { status: 403 });
+  } catch {}
   if (!authConfigurationReady()) return NextResponse.json({ error: "Configure a real PostgreSQL DATABASE_URL and a 32-character AUTH_SECRET in .env." }, { status: 503 });
 
   let body: unknown;
