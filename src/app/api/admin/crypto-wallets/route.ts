@@ -14,21 +14,9 @@ const walletSchema = z.object({
   enabled: z.boolean().default(true),
 });
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
-async function queryWithPg(sql: string, params: any[] = []) {
-  try {
-    const client = await pool.connect();
-    try {
-      const res = await client.query(sql, params);
-      return res.rows;
-    } finally {
-      client.release();
-    }
-  } catch (e) {
-    throw e;
-  }
-}
+const globalForPg = globalThis as unknown as { _pgPool?: Pool };
+const pool = globalForPg._pgPool ?? new Pool({ connectionString: process.env.DATABASE_URL });
+if (process.env.NODE_ENV !== "production") globalForPg._pgPool = pool;
 
 export async function GET() {
   try {
