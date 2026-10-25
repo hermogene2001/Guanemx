@@ -99,8 +99,8 @@ export async function GET() {
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : undefined;
-    console.error("crypto_wallets_get_failed", JSON.stringify({ msg, stack }));
-    return NextResponse.json({ error: "Unable to load crypto wallets." }, { status: 500 });
+    console.error("crypto_wallets_get_failed", JSON.stringify({ msg, stack: stack?.split('\n').slice(0,3).join(' | ') }));
+    return NextResponse.json({ error: "Unable to load crypto wallets.", detail: msg }, { status: 500 });
   }
 }
 
