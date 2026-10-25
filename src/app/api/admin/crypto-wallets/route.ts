@@ -19,8 +19,8 @@ export async function GET() {
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     const wallets = await (prisma as any).crypto_wallets.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] });
     return NextResponse.json({ wallets: wallets.map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: w.enabled })) });
-  } catch (error) {
-    console.error("crypto_wallets_get_failed", error);
+  } catch (error: any) {
+    console.error("crypto_wallets_get_failed", error?.message);
     return NextResponse.json({ error: "Unable to load crypto wallets." }, { status: 500 });
   }
 }
