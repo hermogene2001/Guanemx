@@ -19,13 +19,13 @@ export async function GET() {
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: any[] = [];
     try {
-      wallets = await (prisma as any).cryptoWallet.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] });
+      wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
     } catch {
       try {
         wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
       } catch {
         try {
-          wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+          wallets = await (prisma as any).cryptoWallet.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] });
         } catch {}
       }
     }
