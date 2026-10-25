@@ -25,7 +25,7 @@ export default function CryptoWalletSettingsPanel() {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
       const response = await fetch(editing ? `/api/admin/crypto-wallets/${editing}` : "/api/admin/crypto-wallets", {
-        method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
+        method: editing ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(form),
       });
       const data = await response.json() as { wallet?: CryptoWallet; error?: string };
       if (!response.ok || !data.wallet) { setError(data.error ?? "Wallet could not be saved."); return; }
@@ -38,7 +38,7 @@ export default function CryptoWalletSettingsPanel() {
     if (!window.confirm(`Remove ${wallet.name} on ${wallet.network}? Existing deposit requests keep their saved address.`)) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const response = await fetch(`/api/admin/crypto-wallets/${wallet.id}`, { method: "DELETE" });
+      const response = await fetch(`/api/admin/crypto-wallets/${wallet.id}`, { method: "DELETE", credentials: "same-origin" });
       const data = await response.json() as { error?: string };
       if (!response.ok) { setError(data.error ?? "Wallet could not be removed."); return; }
       setNotice("Crypto wallet removed."); await load();
