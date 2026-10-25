@@ -58,59 +58,43 @@ export async function GET() {
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: any[] = [];
     try {
-      const p: any = prisma as any;
-      if (p.cryptoWallet) {
-        try {
-          wallets = await p.cryptoWallet.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] });
-        } catch {}
+      const p: any = prisma;
+      if (p.cryptoWallet && typeof p.cryptoWallet.findMany === "function") {
+        try { wallets = await p.cryptoWallet.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] }); } catch {}
       }
-      if (!wallets || wallets.length === 0) {
-        try {
-          wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-        } catch {}
+      if ((!wallets || wallets.length === 0) && p.crypto_wallets && typeof p.crypto_wallets.findMany === "function") {
+        try { wallets = await p.crypto_wallets.findMany({ orderBy: [{ name: "asc" }, { network: "asc" }] }); } catch {}
       }
-      if (!wallets || wallets.length === 0) {
-        try {
-          wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-        } catch {}
-      }
-      if (!wallets || wallets.length === 0) {
-        try {
-          const pool = getPool();
-          const client = await pool.connect();
-          try {
-            try {
-              const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-              wallets = res.rows;
-            } catch {
-              try {
-                const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-                wallets = res.rows;
-              } catch {
-                try { await ensureTable(); } catch {}
-                try {
-                  const res = await client.query(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-                  wallets = res.rows;
-                } catch {
-                  const res = await client.query(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-                  wallets = res.rows;
-                }
-              }
-            }
-          } finally {
-            client.release();
-          }
-        } catch {}
-      }
-    } catch (e) {
-      console.error("crypto_wallets_get_inner", e instanceof Error ? e.message : e);
+    } catch {}
+    if (!wallets || wallets.length === 0) {
+      try { wallets = await prisma.$queryRawUnsafe('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC'); } catch {}
     }
-    return NextResponse.json({ wallets: (wallets || []).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
+    if (!wallets || wallets.length === 0) {
+      try { wallets = await prisma.$queryRawUnsafe('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC'); } catch {}
+    }
+    if (!wallets || wallets.length === 0) {
+      try { wallets = await prisma.$queryRawUnsafe('SELECT id, name, network, address, enabled FROM public."crypto_wallets" ORDER BY name ASC, network ASC'); } catch {}
+    }
+    if (!wallets || wallets.length === 0) {
+      try {
+        const pool = getPool();
+        const client = await pool.connect();
+        try {
+          try { const res = await client.query('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC'); wallets = res.rows; } catch {}
+          if ((!wallets || wallets.length === 0)) {
+            try { const res = await client.query('SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC'); wallets = res.rows; } catch {}
+          }
+          if ((!wallets || wallets.length === 0)) {
+            try { await ensureTable(); const res = await client.query('SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC'); wallets = res.rows; } catch {}
+          }
+        } finally { client.release(); }
+      } catch {}
+    }
+    return NextResponse.json({ wallets: (wallets || []).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: w.enabled === true || w.enabled === "t" || w.enabled === 1 })) });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : undefined;
-    console.error("crypto_wallets_get_failed", JSON.stringify({ msg, stack: stack?.split('\n').slice(0,3).join(' | ') }));
-    return NextResponse.json({ error: "Unable to load crypto wallets.", detail: msg }, { status: 500 });
+    console.error("crypto_wallets_get_failed", msg);
+    return NextResponse.json({ error: "Unable to load crypto wallets." }, { status: 500 });
   }
 }
 
@@ -127,34 +111,35 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     let wallet: any = null;
     try {
-      const p: any = prisma as any;
-      if (p.cryptoWallet) {
-        try {
-          wallet = await p.cryptoWallet.create({ data: { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled, updatedAt: now } });
-        } catch {}
+      const p: any = prisma;
+      if (p.cryptoWallet && typeof p.cryptoWallet.create === "function") {
+        try { wallet = await p.cryptoWallet.create({ data: { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled, updatedAt: now } }); } catch {}
+      }
+      if (!wallet && p.crypto_wallets && typeof p.crypto_wallets.create === "function") {
+        try { wallet = await p.crypto_wallets.create({ data: { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled, updatedAt: now } }); } catch {}
       }
     } catch {}
+    if (!wallet) {
+      try { await prisma.$executeRawUnsafe('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now); wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled }; } catch {}
+    }
+    if (!wallet) {
+      try { await prisma.$executeRawUnsafe('INSERT INTO crypto_wallets (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now); wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled }; } catch {}
+    }
     if (!wallet) {
       try {
         const pool = getPool();
         const client = await pool.connect();
         try {
-          await ensureTable();
-          try {
-            await client.query(`INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
-          } catch {
-            try {
-              await client.query(`INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
-            } catch {
-              await client.query(`INSERT INTO "crypto_wallets" (id, name, network, address, enabled, createdAt, updatedAt) VALUES ($1,$2,$3,$4,$5,$6,$7)`, [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
+          try { await ensureTable(); } catch {}
+          try { await client.query('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]); } catch {
+            try { await client.query('INSERT INTO crypto_wallets (id,name,network,address,enabled,"createdAt","updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]); } catch {
+              await client.query('INSERT INTO "crypto_wallets" (id,name,network,address,enabled,createdAt,updatedAt) VALUES ($1,$2,$3,$4,$5,$6,$7)', [id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now]);
             }
           }
           wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
-        } finally {
-          client.release();
-        }
+        } finally { client.release(); }
       } catch (e) {
-        console.error("crypto_wallets_post_inner", e instanceof Error ? e.message : e);
+        console.error("crypto_wallets_post_failed_inner", e instanceof Error ? e.message : e);
         throw e;
       }
     } else {
