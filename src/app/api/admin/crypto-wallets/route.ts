@@ -57,8 +57,12 @@ export async function POST(request: NextRequest) {
     try {
       await prisma.$executeRawUnsafe(`INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
     } catch (e: unknown) {
-      console.error("crypto_wallets_post_failed_ins", e instanceof Error ? e.message : String(e));
-      throw e;
+      try {
+        await prisma.$executeRawUnsafe(`INSERT INTO public.crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
+      } catch {
+        console.error("crypto_wallets_post_failed_ins", e instanceof Error ? e.message : String(e));
+        throw e;
+      }
     }
     const wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
     await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
