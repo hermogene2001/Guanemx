@@ -19,17 +19,17 @@ export async function GET() {
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: unknown[] = [];
     const tries = [
-      `SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`,
       `SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`,
+      `SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`,
     ];
     for (const q of tries) {
       try { wallets = await prisma.$queryRawUnsafe(q); break; } catch {}
     }
     if (!wallets || wallets.length === 0) {
       try {
-        await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)`);
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "crypto_wallets_enabled_name_idx" ON "crypto_wallets"("enabled", "name")`);
-        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
+        await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS crypto_wallets_enabled_name_idx ON crypto_wallets (enabled, name)`);
+        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
       } catch {}
     }
     return NextResponse.json({ wallets: (wallets as Array<{ id: string; name: string; network: string; address: string; enabled: boolean }>).map((w) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
@@ -52,13 +52,9 @@ export async function POST(request: NextRequest) {
     const enabled = parsed.data.enabled ?? true;
     const now = new Date();
     try {
-      await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)`);
+      await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)`);
     } catch {}
-    try {
-      await prisma.$executeRawUnsafe(`INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
-    } catch {
-      await prisma.$executeRawUnsafe(`INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
-    }
+    await prisma.$executeRawUnsafe(`INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
     const wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
     await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ wallet }, { status: 201 });
