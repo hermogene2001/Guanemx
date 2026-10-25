@@ -29,12 +29,12 @@ export async function GET() {
     cryptoWallets = rows as Array<{ id: string; name: string; network: string; address: string }>;
   } catch {
     try {
-      const p2: any = prisma;
-      if (p2.cryptoWallet) {
-        const rows = await p2.cryptoWallet.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
+      const anyPrisma = prisma as any;
+      if (anyPrisma.cryptoWallet) {
+        const rows = await anyPrisma.cryptoWallet.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
         cryptoWallets = rows;
-      } else if (p2.crypto_wallets) {
-        const rows = await p2.crypto_wallets.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
+      } else if (anyPrisma.crypto_wallets) {
+        const rows = await anyPrisma.crypto_wallets.findMany({ where: { enabled: true }, orderBy: [{ name: "asc" }, { network: "asc" }], select: { id: true, name: true, network: true, address: true } });
         cryptoWallets = rows;
       }
     } catch {
@@ -80,11 +80,11 @@ export async function POST(request: NextRequest) {
         cryptoWallet = r || null;
       } catch {
         try {
-          const p2: any = prisma;
-          if (p2.cryptoWallet) {
-            cryptoWallet = await p2.cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } });
-          } else if (p2.crypto_wallets) {
-            cryptoWallet = await p2.crypto_wallets.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } });
+          const anyPrisma = prisma as any;
+          if (anyPrisma.cryptoWallet) {
+            cryptoWallet = await anyPrisma.cryptoWallet.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } });
+          } else if (anyPrisma.crypto_wallets) {
+            cryptoWallet = await anyPrisma.crypto_wallets.findFirst({ where: { id: parsed.data.cryptoWalletId, enabled: true }, select: { name: true, network: true, address: true } });
           }
         } catch {
           cryptoWallet = null;
