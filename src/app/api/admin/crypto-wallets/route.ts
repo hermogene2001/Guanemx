@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
     const parsed = walletSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: "Enter a name, network, and valid wallet address." }, { status: 400 });
-    const wallet = await (prisma as any).crypto_wallets.create({ data: { id: randomUUID(), name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled: parsed.data.enabled ?? true, updatedAt: new Date() } }).catch((e: any) => { throw e; });
+    const wallet = await (prisma as any).crypto_wallets.create({ data: { id: randomUUID(), name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled: parsed.data.enabled ?? true, updatedAt: new Date() } });
     await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ wallet: { id: wallet.id, name: wallet.name, network: wallet.network, address: wallet.address, enabled: wallet.enabled } }, { status: 201 });
   } catch (error) {
