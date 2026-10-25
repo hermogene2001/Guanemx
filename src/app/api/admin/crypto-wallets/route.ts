@@ -18,16 +18,19 @@ export async function GET() {
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: any[] = [];
-    try {
-      wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-    } catch {
+    const queries = [
+      `SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`,
+      `SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`,
+      `SELECT id, name, network, address, enabled FROM "CryptoWallet" ORDER BY name ASC, network ASC`,
+      `SELECT id, name, network, address, enabled FROM "cryptowallets" ORDER BY name ASC, network ASC`,
+    ];
+    for (const q of queries) {
       try {
-        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
-      } catch {
-        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "CryptoWallet" ORDER BY name ASC, network ASC`);
-      }
+        wallets = await prisma.$queryRawUnsafe(q);
+        break;
+      } catch {}
     }
-    return NextResponse.json({ wallets: (wallets as any[]).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: w.enabled })) });
+    return NextResponse.json({ wallets: (wallets as any[]).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
   } catch (error: any) {
     console.error("crypto_wallets_get_failed", error?.message);
     return NextResponse.json({ error: "Unable to load crypto wallets." }, { status: 500 });
@@ -45,7 +48,20 @@ export async function POST(request: NextRequest) {
     const id = randomUUID();
     const enabled = parsed.data.enabled ?? true;
     const now = new Date();
-    await prisma.$executeRawUnsafe(`INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
+    const queries = [
+      `INSERT INTO "crypto_wallets" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      `INSERT INTO crypto_wallets (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      `INSERT INTO "CryptoWallet" (id, name, network, address, enabled, "createdAt", "updatedAt") VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    ];
+    let inserted = false;
+    for (const q of queries) {
+      try {
+        await prisma.$executeRawUnsafe(q, id, parsed.data.name, parsed.data.network, parsed.data.address, enabled, now, now);
+        inserted = true;
+        break;
+      } catch {}
+    }
+    if (!inserted) throw new Error("insert failed");
     const wallet = { id, name: parsed.data.name, network: parsed.data.network, address: parsed.data.address, enabled };
     await recordAudit(prisma, request, admin.id, "crypto_wallet.created", "CryptoWallet", wallet.id, { name: wallet.name, network: wallet.network });
     return NextResponse.json({ wallet }, { status: 201 });
