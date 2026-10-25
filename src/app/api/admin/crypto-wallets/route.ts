@@ -38,7 +38,7 @@ export async function GET() {
     }
     return NextResponse.json({ wallets: (wallets as any[]).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
   } catch (error: any) {
-    console.error("crypto_wallets_get_failed", error?.message);
+    console.error("crypto_wallets_get_failed", error?.message, error?.code);
     return NextResponse.json({ error: "Unable to load crypto wallets." }, { status: 500 });
   }
 }
