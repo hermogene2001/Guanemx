@@ -18,23 +18,16 @@ export async function GET() {
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") return NextResponse.json({ error: "Administrator access is required." }, { status: 403 });
     let wallets: any[] = [];
-    const queries = [
-      `SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`,
-      `SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`,
-      `SELECT id, name, network, address, enabled FROM "CryptoWallet" ORDER BY name ASC, network ASC`,
-    ];
-    for (const q of queries) {
+    try {
+      wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+    } catch {
       try {
-        wallets = await prisma.$queryRawUnsafe(q);
-        break;
-      } catch {}
-    }
-    if (wallets.length === 0) {
-      try {
-        await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS "crypto_wallets" (id TEXT PRIMARY KEY, name VARCHAR(40) NOT NULL, network VARCHAR(60) NOT NULL, address VARCHAR(200) NOT NULL, enabled BOOLEAN NOT NULL DEFAULT true, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL)`);
-        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "crypto_wallets_enabled_name_idx" ON "crypto_wallets"("enabled", "name")`);
-        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM "crypto_wallets" ORDER BY name ASC, network ASC`);
-      } catch {}
+        await prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS crypto_wallets (id text PRIMARY KEY, name varchar(40) NOT NULL, network varchar(60) NOT NULL, address varchar(200) NOT NULL, enabled boolean NOT NULL DEFAULT true, "createdAt" timestamp without time zone DEFAULT now() NOT NULL, "updatedAt" timestamp without time zone NOT NULL)`);
+        await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS crypto_wallets_enabled_name_idx ON crypto_wallets (enabled, name)`);
+        wallets = await prisma.$queryRawUnsafe(`SELECT id, name, network, address, enabled FROM crypto_wallets ORDER BY name ASC, network ASC`);
+      } catch (e: any) {
+        throw e;
+      }
     }
     return NextResponse.json({ wallets: (wallets as any[]).map((w: any) => ({ id: w.id, name: w.name, network: w.network, address: w.address, enabled: Boolean(w.enabled) })) });
   } catch (error: any) {
