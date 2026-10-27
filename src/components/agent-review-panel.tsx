@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatMoney, formatRwf, formatUsd, usdToRwf } from "@/lib/money";
+import RechargeChatPanel from "@/components/recharge-chat-panel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -16,6 +17,12 @@ type Recharge = {
   cryptoName: string | null;
   cryptoNetwork: string | null;
   cryptoAddress: string | null;
+  paymentInstructions: string | null;
+  instructionsSentAt: string | null;
+  instructionsSender: { name: string; role: string } | null;
+  proofContentType: string | null;
+  proofFileName: string | null;
+  proofUploadedAt: string | null;
   client: Client;
 };
 
@@ -152,12 +159,19 @@ function RechargeCard({
   item,
   busyId,
   onAction,
+  onSendInstructions,
+  currentUserId,
 }: {
   item: Recharge;
   busyId: string;
   onAction: (action: ActiveAction) => void;
+  onSendInstructions: (id: string, instructions: string) => void;
+  currentUserId: string;
 }) {
   const isBusy = busyId === item.id;
+  const [instructions, setInstructions] = useState(item.paymentInstructions ?? "");
+  const [chatOpen, setChatOpen] = useState(false);
+  useEffect(() => setInstructions(item.paymentInstructions ?? ""), [item.paymentInstructions]);
   return (
     <article className="agent-request-card" aria-label={`Recharge from ${item.client.name}`}>
       <div className="agent-request-main">
@@ -175,6 +189,16 @@ function RechargeCard({
           {relativeDate(item.createdAt)} · {new Date(item.createdAt).toLocaleString()}
         </time>
       </div>
+      {item.proofFileName && <section className="agent-payment-proof" aria-label="Client payment proof">
+        <div><strong>Client payment proof</strong><small>{item.proofFileName}{item.proofUploadedAt ? ` · Uploaded ${new Date(item.proofUploadedAt).toLocaleString()}` : ""}</small></div>
+        {item.proofContentType?.startsWith("image/") ? <a href={`/api/recharges/${item.id}/proof`} target="_blank" rel="noreferrer"><img src={`/api/recharges/${item.id}/proof`} alt={`Payment proof uploaded by ${item.client.name}`} /></a> : <a className="button button-quiet" href={`/api/recharges/${item.id}/proof`} target="_blank" rel="noreferrer">Open payment proof</a>}
+      </section>}
+      {item.paymentInstructions && <div className="agent-sent-instructions"><strong>Instructions sent to client</strong><p>{item.paymentInstructions}</p><small>{item.instructionsSender ? `Sent by ${item.instructionsSender.name} (${item.instructionsSender.role.toLowerCase()})` : "Sent"}{item.instructionsSentAt ? ` · ${new Date(item.instructionsSentAt).toLocaleString()}` : ""}</small></div>}
+      <form className="agent-instruction-form" onSubmit={(event) => { event.preventDefault(); onSendInstructions(item.id, instructions.trim()); }}>
+        <label className="auth-field">Payment instructions for client<textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} maxLength={1500} rows={3} placeholder="Enter the PWC code and clear payment steps, or the payment details the client needs." required /></label>
+        <small>These instructions appear on the client&apos;s processing screen and refresh automatically.</small>
+        <button type="submit" className="button button-quiet" disabled={isBusy || !instructions.trim()}>{isBusy ? "Sending…" : item.paymentInstructions ? "Update instructions" : "Send instructions to client"}</button>
+      </form>
       <div className="agent-request-actions">
         <button
           className="button"
@@ -211,6 +235,8 @@ function RechargeCard({
           Reject
         </button>
       </div>
+      <button type="button" className="agent-chat-toggle" onClick={() => setChatOpen((open) => !open)}>{chatOpen ? "Close client chat" : `Chat with ${item.client.name}`}</button>
+      {chatOpen && <RechargeChatPanel requestId={item.id} currentUserId={currentUserId} title={`Chat with ${item.client.name}`} />}
     </article>
   );
 }
@@ -317,7 +343,7 @@ function Skeleton() {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
-export default function AgentReviewPanel({ rate }: { rate: string }) {
+export default function AgentReviewPanel({ userId, rate }: { userId: string; rate: string }) {
   const [tab, setTab] = useState<"recharges" | "withdrawals">("recharges");
   const [recharges, setRecharges] = useState<Recharge[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
@@ -402,6 +428,29 @@ export default function AgentReviewPanel({ rate }: { rate: string }) {
     }
   }
 
+  async function handleSendInstructions(id: string, instructions: string) {
+    setBusyId(id);
+    setError("");
+    try {
+      const response = await fetch(`/api/agent/recharges/${id}/instructions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instructions }),
+      });
+      const data = await response.json() as { error?: string };
+      if (!response.ok) {
+        setError(data.error ?? "Payment instructions could not be sent.");
+        return;
+      }
+      setToast("Payment instructions sent to the client.");
+      await load();
+    } catch {
+      setError("Unable to reach GuanemX. Try again.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
   const pendingRecharges = recharges.length;
   const pendingWithdrawals = withdrawals.length;
 
@@ -477,6 +526,8 @@ export default function AgentReviewPanel({ rate }: { rate: string }) {
                     item={item}
                     busyId={busyId}
                     onAction={setActiveAction}
+                    onSendInstructions={handleSendInstructions}
+                    currentUserId={userId}
                   />
                 ))}
               </div>

@@ -3,9 +3,9 @@ import { cookies } from "next/headers";
 import { Prisma, UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hasDatabaseUrl } from "@/lib/environment";
+import { SESSION_COOKIE_NAME, SESSION_DURATION_MS } from "@/lib/constants";
 
-export const SESSION_COOKIE = "guanemx_session";
-const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+export const SESSION_COOKIE = SESSION_COOKIE_NAME;
 
 export function authConfigurationReady() {
   return Boolean(hasDatabaseUrl() && process.env.AUTH_SECRET && process.env.AUTH_SECRET.length >= 32);

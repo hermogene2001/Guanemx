@@ -21,7 +21,13 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Sign in to view recharge requests." }, { status: 401 });
   const recharges = await prisma.rechargeRequest.findMany({
     where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 50,
-    include: { assignedAgent: { select: { name: true, phone: true } }, transaction: { select: { reference: true } } },
+    select: {
+      id: true, amount: true, currency: true, status: true, paymentMethod: true, cryptoName: true, cryptoNetwork: true, cryptoAddress: true,
+      createdAt: true, reviewedAt: true, paymentInstructions: true, instructionsSentAt: true,
+      proofContentType: true, proofFileName: true, proofUploadedAt: true,
+      assignedAgent: { select: { name: true, phone: true } },
+      instructionsSender: { select: { name: true, role: true } }, transaction: { select: { reference: true } },
+    },
   });
   let cryptoWallets: Array<{ id: string; name: string; network: string; address: string }> = [];
   try {
@@ -36,7 +42,11 @@ export async function GET() {
   return NextResponse.json({ cryptoWallets, recharges: recharges.map((item) => ({
     id: item.id, amount: item.amount.toFixed(0), currency: item.currency, status: item.status,
     paymentMethod: item.paymentMethod, cryptoName: item.cryptoName, cryptoNetwork: item.cryptoNetwork, cryptoAddress: item.cryptoAddress,
-    createdAt: item.createdAt.toISOString(), agent: { name: item.assignedAgent.name, phone: item.assignedAgent.phone },
+    createdAt: item.createdAt.toISOString(), reviewedAt: item.reviewedAt?.toISOString() ?? null,
+    paymentInstructions: item.paymentInstructions, instructionsSentAt: item.instructionsSentAt?.toISOString() ?? null,
+    proofContentType: item.proofContentType, proofFileName: item.proofFileName, proofUploadedAt: item.proofUploadedAt?.toISOString() ?? null,
+    instructionsSender: item.instructionsSender,
+    agent: { name: item.assignedAgent.name, phone: item.assignedAgent.phone },
     reference: item.transaction?.reference ?? null,
   })) });
 }

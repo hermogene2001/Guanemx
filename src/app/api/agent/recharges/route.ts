@@ -8,7 +8,12 @@ export async function GET() {
   const requests = await prisma.rechargeRequest.findMany({
     where: user.role === "ADMIN" ? { status: "PENDING" } : { assignedAgentId: user.id, status: "PENDING" },
     orderBy: { createdAt: "asc" }, take: 100,
-    include: { user: { select: { name: true, email: true, phone: true } } },
+    select: {
+      id: true, amount: true, currency: true, createdAt: true, paymentMethod: true, cryptoName: true, cryptoNetwork: true, cryptoAddress: true,
+      paymentInstructions: true, instructionsSentAt: true, proofContentType: true, proofFileName: true, proofUploadedAt: true,
+      user: { select: { name: true, email: true, phone: true } },
+      instructionsSender: { select: { name: true, role: true } },
+    },
   });
-  return NextResponse.json({ requests: requests.map((item) => ({ id: item.id, amount: item.amount.toFixed(0), currency: item.currency, createdAt: item.createdAt.toISOString(), paymentMethod: item.paymentMethod, cryptoName: item.cryptoName, cryptoNetwork: item.cryptoNetwork, cryptoAddress: item.cryptoAddress, client: item.user })) });
+  return NextResponse.json({ requests: requests.map((item) => ({ id: item.id, amount: item.amount.toFixed(0), currency: item.currency, createdAt: item.createdAt.toISOString(), paymentMethod: item.paymentMethod, cryptoName: item.cryptoName, cryptoNetwork: item.cryptoNetwork, cryptoAddress: item.cryptoAddress, paymentInstructions: item.paymentInstructions, instructionsSentAt: item.instructionsSentAt?.toISOString() ?? null, instructionsSender: item.instructionsSender, proofContentType: item.proofContentType, proofFileName: item.proofFileName, proofUploadedAt: item.proofUploadedAt?.toISOString() ?? null, client: item.user })) });
 }

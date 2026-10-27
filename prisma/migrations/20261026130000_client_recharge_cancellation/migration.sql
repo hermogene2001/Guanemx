@@ -1,0 +1,1 @@
+ALTER TYPE "RechargeStatus" ADD VALUE 'CANCELLED';
