@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { consumeRateLimit, getCurrentUser, sameOriginRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { publishCommunityMessage } from "@/lib/community-realtime";
 
 const messageSchema = z.object({ body: z.string().trim().min(1).max(4000) });
 
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
   const parsed = messageSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Messages must contain 1 to 4,000 characters." }, { status: 400 });
   const room = await generalRoom();
-  const message = await prisma.communityMessage.create({ data: { roomId: room.id, authorId: user.id, body: parsed.data.body } });
+  const message = await prisma.communityMessage.create({ data: { roomId: room.id, authorId: user.id, body: parsed.data.body }, include: { author: { select: { id: true, name: true, role: true } } } });
+  await publishCommunityMessage({ id: message.id, body: message.body, createdAt: message.createdAt.toISOString(), author: message.author });
   return NextResponse.json({ id: message.id, createdAt: message.createdAt.toISOString() }, { status: 201 });
 }
