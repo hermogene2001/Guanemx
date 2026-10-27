@@ -11,11 +11,11 @@ This workspace includes a standalone `GuanemX V1 prototype.html`, which serves a
 5. (Optional) Run `npm run db:seed`. The seed is idempotent and never fabricates robots, plans, balances, or performance data: it ensures the General community room exists and optionally promotes a registered account to `ADMIN` when `SEED_ADMIN_EMAIL` is set.
 6. Run `npm run dev`.
 
-For local WebSocket testing, run the app with the Vercel CLI (`vercel dev`) and provide a `REDIS_URL`; plain `next dev` does not provide Vercel's WebSocket upgrade runtime.
+For local WebSocket testing, run the app with the Vercel CLI (`vercel dev`); plain `next dev` does not provide Vercel's WebSocket upgrade runtime. In production, live community updates use PostgreSQL `LISTEN`/`NOTIFY` and require `POSTGRES_URL_NON_POOLING` (the direct, non-pooled database URL).
 
 No payment provider is selected. Recharge confirmation and withdrawal accounting are agent-operated; no provider currently receives or sends funds. Withdrawal approvals record accounting only; actual payouts are performed manually outside GuanemX. Email uses `MAIL_DRIVER=log` locally; production must configure `MAIL_DRIVER=resend` (`RESEND_API_KEY`, `MAIL_FROM`) or `MAIL_DRIVER=smtp` (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM`).
 
-The community room delivers new messages over WebSockets. Configure `REDIS_URL` with a Redis connection URL (for example, from an Upstash Redis integration on Vercel) so messages reach users connected to different serverless instances. Local development can run without Redis, but live delivery then only works between clients connected to the same server process.
+The community room delivers new messages over WebSockets and relays events through PostgreSQL `LISTEN`/`NOTIFY`, so it uses the existing database rather than a separate Redis service. The listener requires a direct, non-pooled PostgreSQL URL; Vercel's Neon integration provides `POSTGRES_URL_NON_POOLING`.
 
 ## Health gates
 

@@ -10,7 +10,6 @@ export async function GET(request: Request) {
   if (!sameOriginRequest(request)) return NextResponse.json({ error: "Request origin could not be verified." }, { status: 403 });
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in to join the community." }, { status: 401 });
-  if (!process.env.REDIS_URL && process.env.NODE_ENV === "production") return NextResponse.json({ error: "Community live updates are not configured." }, { status: 503 });
   try {
     await ensureCommunityRealtime();
   } catch {
