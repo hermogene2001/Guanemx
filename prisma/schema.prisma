@@ -20,6 +20,7 @@ model User {
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   invitedById         String?
+  rechargeInstructionsTemplate String? @db.VarChar(1500)
   referralCode        String?             @unique
   auditLogs           AuditLog[]          @relation("AuditActor")
   messages            CommunityMessage[]

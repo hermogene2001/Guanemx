@@ -340,6 +340,8 @@ body{background:var(--paper);color:var(--ink)}
 .agent-recharge-card .agent-request-actions{flex-direction:row;flex-wrap:wrap;min-width:0}
 .agent-recharge-card .agent-request-actions .button{flex:0 1 auto}
 .agent-recharge-card .agent-chat-toggle{max-width:100%;overflow-wrap:anywhere}
+.agent-instruction-option{display:flex;align-items:flex-start;gap:9px;color:#b7d8ed;font-size:11px;line-height:1.5;cursor:pointer}
+.agent-instruction-option input{flex:none;margin:2px 0 0;accent-color:#1dbdff}
 .agent-request-main{display:grid;gap:8px}
 .agent-request-amount{display:flex;align-items:center;gap:10px}
 .agent-request-amount strong{font-size:16px;letter-spacing:-.3px}

@@ -161,17 +161,25 @@ function RechargeCard({
   onAction,
   onSendInstructions,
   currentUserId,
+  reusableInstructions,
+  applyToAll,
+  onApplyToAllChange,
+  canSaveTemplate,
 }: {
   item: Recharge;
   busyId: string;
   onAction: (action: ActiveAction) => void;
-  onSendInstructions: (id: string, instructions: string) => void;
+  onSendInstructions: (id: string, instructions: string, applyToAll: boolean) => void;
   currentUserId: string;
+  reusableInstructions: string;
+  applyToAll: boolean;
+  onApplyToAllChange: (checked: boolean) => void;
+  canSaveTemplate: boolean;
 }) {
   const isBusy = busyId === item.id;
-  const [instructions, setInstructions] = useState(item.paymentInstructions ?? "");
+  const [instructions, setInstructions] = useState(item.paymentInstructions ?? reusableInstructions);
   const [chatOpen, setChatOpen] = useState(false);
-  useEffect(() => setInstructions(item.paymentInstructions ?? ""), [item.paymentInstructions]);
+  useEffect(() => setInstructions(item.paymentInstructions ?? reusableInstructions), [item.paymentInstructions, reusableInstructions]);
   return (
     <article className="agent-request-card agent-recharge-card" aria-label={`Recharge from ${item.client.name}`}>
       <div className="agent-request-main">
@@ -194,9 +202,10 @@ function RechargeCard({
         {item.proofContentType?.startsWith("image/") ? <a href={`/api/recharges/${item.id}/proof`} target="_blank" rel="noreferrer"><img src={`/api/recharges/${item.id}/proof`} alt={`Payment proof uploaded by ${item.client.name}`} /></a> : <a className="button button-quiet" href={`/api/recharges/${item.id}/proof`} target="_blank" rel="noreferrer">Open payment proof</a>}
       </section>}
       {item.paymentInstructions && <div className="agent-sent-instructions"><strong>Instructions sent to client</strong><p>{item.paymentInstructions}</p><small>{item.instructionsSender ? `Sent by ${item.instructionsSender.name} (${item.instructionsSender.role.toLowerCase()})` : "Sent"}{item.instructionsSentAt ? ` · ${new Date(item.instructionsSentAt).toLocaleString()}` : ""}</small></div>}
-      <form className="agent-instruction-form" onSubmit={(event) => { event.preventDefault(); onSendInstructions(item.id, instructions.trim()); }}>
+      <form className="agent-instruction-form" onSubmit={(event) => { event.preventDefault(); onSendInstructions(item.id, instructions.trim(), canSaveTemplate && applyToAll); }}>
         <label className="auth-field">Payment instructions for client<textarea value={instructions} onChange={(event) => setInstructions(event.target.value)} maxLength={1500} rows={3} placeholder="Enter the PWC code and clear payment steps, or the payment details the client needs." required /></label>
         <small>These instructions appear on the client&apos;s processing screen and refresh automatically.</small>
+        {canSaveTemplate && <label className="agent-instruction-option"><input type="checkbox" checked={applyToAll} onChange={(event) => onApplyToAllChange(event.target.checked)} /><span>Apply to all my pending and future recharge requests</span></label>}
         <button type="submit" className="button button-quiet" disabled={isBusy || !instructions.trim()}>{isBusy ? "Sending…" : item.paymentInstructions ? "Update instructions" : "Send instructions to client"}</button>
       </form>
       <div className="agent-request-actions">
@@ -343,7 +352,7 @@ function Skeleton() {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
-export default function AgentReviewPanel({ userId, rate }: { userId: string; rate: string }) {
+export default function AgentReviewPanel({ userId, rate, isAgent }: { userId: string; rate: string; isAgent: boolean }) {
   const [tab, setTab] = useState<"recharges" | "withdrawals">("recharges");
   const [recharges, setRecharges] = useState<Recharge[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
@@ -352,6 +361,8 @@ export default function AgentReviewPanel({ userId, rate }: { userId: string; rat
   const [toast, setToast] = useState("");
   const [busyId, setBusyId] = useState("");
   const [activeAction, setActiveAction] = useState<ActiveAction | null>(null);
+  const [reusableInstructions, setReusableInstructions] = useState("");
+  const [applyToAll, setApplyToAll] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -361,7 +372,7 @@ export default function AgentReviewPanel({ userId, rate }: { userId: string; rat
         fetch("/api/agent/withdrawals", { cache: "no-store" }),
       ]);
       const [rData, wData] = await Promise.all([
-        rRes.json() as Promise<{ requests?: Recharge[]; error?: string }>,
+        rRes.json() as Promise<{ requests?: Recharge[]; reusableInstructions?: string | null; error?: string }>,
         wRes.json() as Promise<{ withdrawals?: Withdrawal[]; error?: string }>,
       ]);
       if (!rRes.ok || !wRes.ok) {
@@ -370,6 +381,8 @@ export default function AgentReviewPanel({ userId, rate }: { userId: string; rat
       }
       setError("");
       setRecharges(rData.requests ?? []);
+      setReusableInstructions(rData.reusableInstructions ?? "");
+      setApplyToAll(Boolean(rData.reusableInstructions));
       setWithdrawals(wData.withdrawals ?? []);
     } catch {
       setError("Unable to reach GuanemX. Check your connection.");
@@ -428,21 +441,22 @@ export default function AgentReviewPanel({ userId, rate }: { userId: string; rat
     }
   }
 
-  async function handleSendInstructions(id: string, instructions: string) {
+  async function handleSendInstructions(id: string, instructions: string, shouldApplyToAll: boolean) {
     setBusyId(id);
     setError("");
     try {
       const response = await fetch(`/api/agent/recharges/${id}/instructions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instructions }),
+        body: JSON.stringify({ instructions, applyToAll: shouldApplyToAll }),
       });
-      const data = await response.json() as { error?: string };
+      const data = await response.json() as { error?: string; reusableInstructions?: string | null };
       if (!response.ok) {
         setError(data.error ?? "Payment instructions could not be sent.");
         return;
       }
-      setToast("Payment instructions sent to the client.");
+      setToast(shouldApplyToAll ? "Instructions applied to your pending requests and saved for future requests." : "Payment instructions sent to the client.");
+      if (data.reusableInstructions !== undefined) setReusableInstructions(data.reusableInstructions ?? "");
       await load();
     } catch {
       setError("Unable to reach GuanemX. Try again.");
@@ -528,6 +542,10 @@ export default function AgentReviewPanel({ userId, rate }: { userId: string; rat
                     onAction={setActiveAction}
                     onSendInstructions={handleSendInstructions}
                     currentUserId={userId}
+                    reusableInstructions={reusableInstructions}
+                    applyToAll={applyToAll}
+                    onApplyToAllChange={setApplyToAll}
+                    canSaveTemplate={isAgent}
                   />
                 ))}
               </div>

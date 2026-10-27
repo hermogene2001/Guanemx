@@ -88,9 +88,13 @@ export async function POST(request: NextRequest) {
     if (parsed.data.paymentMethod === "CRYPTO" && !cryptoWallet) return NextResponse.json({ error: "That crypto wallet is unavailable. Choose another wallet." }, { status: 400 });
     const agentId = agents[randomInt(agents.length)].id;
     const result = await prisma.$transaction(async (tx) => {
+      const agent = await tx.user.findUnique({ where: { id: agentId }, select: { rechargeInstructionsTemplate: true } });
+      const instructions = agent?.rechargeInstructionsTemplate ?? null;
+      const instructionsSentAt = instructions ? new Date() : null;
       const recharge = await tx.rechargeRequest.create({ data: {
         userId: user.id, assignedAgentId: agentId, amount: new Prisma.Decimal(parsed.data.amount), currency: CURRENCY, idempotencyKey,
         paymentMethod: parsed.data.paymentMethod, cryptoName: cryptoWallet?.name || parsed.data.methodProvider || null, cryptoNetwork: cryptoWallet?.network || parsed.data.methodNetwork || null, cryptoAddress: cryptoWallet?.address || null,
+        paymentInstructions: instructions, instructionsSentAt, instructionsSenderId: instructions ? agentId : null,
       }, include: { assignedAgent: { select: { name: true, phone: true } } } });
       await recordAudit(tx, request, user.id, "recharge.requested", "RechargeRequest", recharge.id, { amount: parsed.data.amount, paymentMethod: recharge.paymentMethod, cryptoName: recharge.cryptoName, cryptoNetwork: recharge.cryptoNetwork });
       return recharge;

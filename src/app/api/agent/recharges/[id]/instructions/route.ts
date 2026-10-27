@@ -4,7 +4,7 @@ import { getCurrentUser, sameOriginRequest } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/finance";
 
-const instructionsSchema = z.object({ instructions: z.string().trim().min(1).max(1500) });
+const instructionsSchema = z.object({ instructions: z.string().trim().min(1).max(1500), applyToAll: z.boolean().default(false) });
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!sameOriginRequest(request)) return NextResponse.json({ error: "Request origin could not be verified." }, { status: 403 });
@@ -17,6 +17,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!parsed.success) return NextResponse.json({ error: "Enter payment instructions of up to 1,500 characters." }, { status: 400 });
 
   const { id } = await params;
+  if (parsed.data.applyToAll && sender.role !== "AGENT") return NextResponse.json({ error: "Only agents can save reusable instructions for their assigned requests." }, { status: 403 });
   try {
     const sentAt = new Date();
     await prisma.$transaction(async (tx) => {
@@ -24,14 +25,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!recharge || (sender.role !== "ADMIN" && recharge.assignedAgentId !== sender.id)) throw new Error("NOT_ASSIGNED");
       if (recharge.status !== "PENDING") throw new Error("ALREADY_REVIEWED");
 
-      const updated = await tx.rechargeRequest.updateMany({
-        where: { id, status: "PENDING" },
-        data: { paymentInstructions: parsed.data.instructions, instructionsSentAt: sentAt, instructionsSenderId: sender.id },
-      });
-      if (updated.count !== 1) throw new Error("ALREADY_REVIEWED");
-      await recordAudit(tx, request, sender.id, "recharge.instructions_sent", "RechargeRequest", id, { characterCount: parsed.data.instructions.length, senderRole: sender.role });
+      if (parsed.data.applyToAll) {
+        await tx.user.update({ where: { id: sender.id }, data: { rechargeInstructionsTemplate: parsed.data.instructions } });
+        await tx.rechargeRequest.updateMany({
+          where: { assignedAgentId: sender.id, status: "PENDING" },
+          data: { paymentInstructions: parsed.data.instructions, instructionsSentAt: sentAt, instructionsSenderId: sender.id },
+        });
+      } else {
+        if (sender.role === "AGENT") await tx.user.update({ where: { id: sender.id }, data: { rechargeInstructionsTemplate: null } });
+        const updated = await tx.rechargeRequest.updateMany({
+          where: { id, status: "PENDING" },
+          data: { paymentInstructions: parsed.data.instructions, instructionsSentAt: sentAt, instructionsSenderId: sender.id },
+        });
+        if (updated.count !== 1) throw new Error("ALREADY_REVIEWED");
+      }
+
+      await recordAudit(tx, request, sender.id, parsed.data.applyToAll ? "recharge.instructions_applied_to_queue" : "recharge.instructions_sent", "RechargeRequest", id, { characterCount: parsed.data.instructions.length, senderRole: sender.role, appliedToAllPending: parsed.data.applyToAll });
     });
-    return NextResponse.json({ sentAt: sentAt.toISOString(), sender: { name: sender.name, role: sender.role } });
+    return NextResponse.json({ sentAt: sentAt.toISOString(), sender: { name: sender.name, role: sender.role }, reusableInstructions: parsed.data.applyToAll ? parsed.data.instructions : null });
   } catch (error) {
     if (error instanceof Error && error.message === "NOT_ASSIGNED") return NextResponse.json({ error: "Recharge request was not found or is assigned to another agent." }, { status: 404 });
     if (error instanceof Error && error.message === "ALREADY_REVIEWED") return NextResponse.json({ error: "This recharge request is no longer pending." }, { status: 409 });
