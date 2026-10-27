@@ -331,6 +331,14 @@ body{background:var(--paper);color:var(--ink)}
 .agent-tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:9px;background:var(--primary);color:#fff;font-size:9px;font-weight:700;padding:0 4px;margin-left:7px}
 .agent-request-list{display:grid;gap:12px}
 .agent-request-card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:start}
+.agent-recharge-card{grid-template-columns:minmax(0,1fr);gap:14px}
+.agent-recharge-card>*{min-width:0}
+.agent-recharge-card .agent-request-main{overflow-wrap:anywhere}
+.agent-recharge-card .agent-payment-proof,.agent-recharge-card .agent-instruction-form,.agent-recharge-card .agent-sent-instructions{grid-column:1;min-width:0}
+.agent-recharge-card .agent-payment-proof img{width:auto;max-width:min(100%,520px);max-height:320px}
+.agent-recharge-card .agent-request-actions{flex-direction:row;flex-wrap:wrap;min-width:0}
+.agent-recharge-card .agent-request-actions .button{flex:0 1 auto}
+.agent-recharge-card .agent-chat-toggle{max-width:100%;overflow-wrap:anywhere}
 .agent-request-main{display:grid;gap:8px}
 .agent-request-amount{display:flex;align-items:center;gap:10px}
 .agent-request-amount strong{font-size:16px;letter-spacing:-.3px}

@@ -173,7 +173,7 @@ function RechargeCard({
   const [chatOpen, setChatOpen] = useState(false);
   useEffect(() => setInstructions(item.paymentInstructions ?? ""), [item.paymentInstructions]);
   return (
-    <article className="agent-request-card" aria-label={`Recharge from ${item.client.name}`}>
+    <article className="agent-request-card agent-recharge-card" aria-label={`Recharge from ${item.client.name}`}>
       <div className="agent-request-main">
         <div className="agent-request-amount">
           <strong>{formatMoney(item.amount, item.currency)}</strong>
